@@ -385,6 +385,7 @@ static DWORD packet_receive_http(Remote *remote, Packet **packet)
 	{
 		goto out;
 	}
+
 	// Read the packet length
 	retries = 3;
 	vdprintf("[PACKET RECEIVE HTTP] Start looping through the receive calls");
@@ -405,7 +406,7 @@ static DWORD packet_receive_http(Remote *remote, Packet **packet)
 		// ERROR_EMPTY response code so we can update the timestamp.
 		if (bytesRead == 0)
 		{
-			SetLastError(ERROR_EMPTY); // heartbeat packet
+			SetLastError(ERROR_EMPTY);
 			goto out;
 		}
 
