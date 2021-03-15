@@ -97,6 +97,7 @@ typedef struct _HttpTransportContext
 	PValidateResponse validate_response;  ///! WinHTTP/WinINET specific response validation.
 	PReceiveResponse receive_response;    ///! WinHttp/WinINET specific response data reception.
 	PReadResponse read_response;          ///! WinHttp/WinINET specific response data reading.
+	DWORD delay;                          ///! Indication of whether set keep-alive.
 } HttpTransportContext;
 
 typedef struct _Transport

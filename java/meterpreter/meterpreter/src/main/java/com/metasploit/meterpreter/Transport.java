@@ -1,6 +1,5 @@
 package com.metasploit.meterpreter;
 
-import com.metasploit.stage.ConfigParser;
 import com.metasploit.stage.TransportConfig;
 
 import java.io.ByteArrayInputStream;
@@ -55,8 +54,8 @@ public abstract class Transport {
     }
 
     protected void arrayCopy(byte[] src, int srcOffset, byte[] dest, int destOffset, int count) {
-        for (int i = 0; i < count; ++i) {
-            dest[destOffset + i] = src[srcOffset + i];
+        if (count >= 0) {
+            System.arraycopy(src, srcOffset + 0, dest, destOffset + 0, count);
         }
     }
 
@@ -273,7 +272,7 @@ public abstract class Transport {
                 if (this.tryConnect(met)) {
                     return true;
                 }
-            } catch (Exception e) {
+            } catch (Exception ignored) {
             }
 
             met.sleep(this.retryWait);

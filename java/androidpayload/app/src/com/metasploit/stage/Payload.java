@@ -52,7 +52,7 @@ public class Payload {
     public static void startContext() {
         try {
             findContext();
-        } catch (Exception e) {
+        } catch (Exception ignored) {
         }
     }
 
@@ -76,7 +76,7 @@ public class Payload {
                         if (context != null) {
                             start(context);
                         }
-                    } catch (Exception e) {
+                    } catch (Exception ignored) {
                     }
                 }
             });
@@ -199,8 +199,9 @@ public class Payload {
         int n = 0;
         while (n < byteLen) {
             int count = in.read(bytes, n, byteLen - n);
-            if (count < 0)
+            if (count < 0) {
                 throw new Exception();
+            }
             n += count;
         }
         return bytes;

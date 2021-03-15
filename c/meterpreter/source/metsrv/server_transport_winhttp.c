@@ -3,6 +3,7 @@
  * @remark This file doesn't use precompiled headers because metsrv.h includes a bunch of
  *         of definitions that clash with those found in winhttp.h. Hooray Win32 API. I hate you.
  */
+//toybox
 #include "metsrv.h"
 #include "server_transport_wininet.h"
 #include <winhttp.h>
@@ -153,7 +154,13 @@ static HINTERNET get_request_winhttp(HttpTransportContext *ctx, BOOL isGet, cons
 			dprintf("[%s] failed to set the security flags on the request", direction);
 		}
 	}
-
+	if (ctx->delay >= 3000)
+	{
+		//toybox
+		DWORD dwFlags = 0;
+		dwFlags = WINHTTP_DISABLE_KEEP_ALIVE;
+		WinHttpSetOption(hReq, WINHTTP_OPTION_DISABLE_FEATURE, &dwFlags, sizeof(dwFlags));
+	}
 	return hReq;
 }
 
@@ -378,7 +385,6 @@ static DWORD packet_receive_http(Remote *remote, Packet **packet)
 	{
 		goto out;
 	}
-
 	// Read the packet length
 	retries = 3;
 	vdprintf("[PACKET RECEIVE HTTP] Start looping through the receive calls");
@@ -399,7 +405,7 @@ static DWORD packet_receive_http(Remote *remote, Packet **packet)
 		// ERROR_EMPTY response code so we can update the timestamp.
 		if (bytesRead == 0)
 		{
-			SetLastError(ERROR_EMPTY);
+			SetLastError(ERROR_EMPTY); // heartbeat packet
 			goto out;
 		}
 
@@ -679,7 +685,7 @@ static DWORD server_dispatch_http(Remote* remote, THREAD* dispatchThread)
 
 		dprintf("[DISPATCH] Reading data from the remote side...");
 		result = packet_receive_http(remote, &packet);
-
+		ctx->delay = 1000;
 		if (result != ERROR_SUCCESS)
 		{
 			// Update the timestamp for empty replies
@@ -729,6 +735,7 @@ static DWORD server_dispatch_http(Remote* remote, THREAD* dispatchThread)
 			ecount++;
 
 			dprintf("[DISPATCH] no pending packets, sleeping for %dms...", min(10000, delay));
+			ctx->delay = min(10000, delay);
 			Sleep(min(10000, delay));
 		}
 		else

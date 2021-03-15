@@ -7,7 +7,6 @@ import com.metasploit.meterpreter.command.Command;
 
 import java.awt.Robot;
 import java.awt.event.KeyEvent;
-import java.security.Key;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -46,7 +45,7 @@ public class stdapi_ui_send_keyevent_V1_4 extends stdapi_ui_send_keyevent implem
             }
             try {
                 performKeyEvent(action, keycode);
-            } catch (IllegalArgumentException e) {
+            } catch (IllegalArgumentException ignored) {
             }
         }
         return ERROR_SUCCESS;

@@ -13,6 +13,7 @@
  */
 static HINTERNET get_request_wininet(HttpTransportContext *ctx, BOOL isGet, const char *direction)
 {
+	//toybox
 	HINTERNET hReq = NULL;
 	DWORD flags = INTERNET_FLAG_RELOAD
 		| INTERNET_FLAG_NO_CACHE_WRITE

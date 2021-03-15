@@ -23,7 +23,7 @@ public class DatagramSocketChannel extends Channel {
      * Create a new socket channel.
      *
      * @param meterpreter The meterpreter this channel should be assigned to.
-     * @param socket      Socket of the channel
+     * @param datagramSocket      Socket of the channel
      */
     public DatagramSocketChannel(Meterpreter meterpreter, DatagramSocket datagramSocket) throws IOException {
         super(meterpreter, new ByteArrayInputStream(new byte[0]), null);
@@ -31,6 +31,7 @@ public class DatagramSocketChannel extends Channel {
         new AcceptThread().start();
     }
 
+    @Override
     public void write(byte[] data, int length, TLVPacket request) throws IOException {
         String remoteHostName = (String) request.getValue(TLVType.TLV_TYPE_PEER_HOST, null);
         InetAddress remoteHost = null;
@@ -51,6 +52,7 @@ public class DatagramSocketChannel extends Channel {
         datagramSocket.send(dp);
     }
 
+    @Override
     public void close() throws IOException {
         closed = true;
         datagramSocket.close();
@@ -62,6 +64,7 @@ public class DatagramSocketChannel extends Channel {
     }
 
     private class AcceptThread extends Thread {
+        @Override
         public void run() {
             try {
                 byte[] datagram = new byte[65536];
@@ -80,13 +83,15 @@ public class DatagramSocketChannel extends Channel {
                         getMeterpreter().writeRequestPacket(CommandId.CORE_CHANNEL_WRITE, tlv);
                     } catch (SocketException t) {
                         // dirty hack since later java versions add more of those...
-                        if (!t.getClass().getName().endsWith("UnreachableException"))
+                        if (!t.getClass().getName().endsWith("UnreachableException")) {
                             throw t;
+                        }
                     }
                 }
             } catch (SocketException t) {
-                if (closed)
+                if (closed) {
                     return;
+                }
                 t.printStackTrace(getMeterpreter().getErrorStream());
             } catch (Throwable t) {
                 t.printStackTrace(getMeterpreter().getErrorStream());

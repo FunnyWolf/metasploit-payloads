@@ -18,7 +18,7 @@ import java.util.Map;
  */
 public class MemoryBufferURLConnection extends URLConnection {
 
-    private static List files = new ArrayList();
+    private static List files;
 
     static {
         // tweak the cache of already loaded protocol handlers via reflection
@@ -87,17 +87,21 @@ public class MemoryBufferURLConnection extends URLConnection {
         contentType = file.substring(pos + 1);
     }
 
+    @Override
     public void connect() throws IOException {
     }
 
+    @Override
     public InputStream getInputStream() throws IOException {
         return new ByteArrayInputStream(data);
     }
 
+    @Override
     public int getContentLength() {
         return data.length;
     }
 
+    @Override
     public String getContentType() {
         return contentType;
     }

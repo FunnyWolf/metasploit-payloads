@@ -22,7 +22,7 @@ public class ServerSocketChannel extends Channel {
      * Create a new socket channel.
      *
      * @param meterpreter The meterpreter this channel should be assigned to.
-     * @param socket      Socket of the channel
+     * @param serverSocket      Socket of the channel
      */
     public ServerSocketChannel(Meterpreter meterpreter, ServerSocket serverSocket) throws IOException {
         super(meterpreter, new ByteArrayInputStream(new byte[0]), null);
@@ -30,6 +30,7 @@ public class ServerSocketChannel extends Channel {
         new AcceptThread().start();
     }
 
+    @Override
     public void close() throws IOException {
         closed = true;
         serverSocket.close();
@@ -41,6 +42,7 @@ public class ServerSocketChannel extends Channel {
     }
 
     private class AcceptThread extends Thread {
+        @Override
         public void run() {
             try {
                 while (true) {
@@ -58,8 +60,9 @@ public class ServerSocketChannel extends Channel {
                     ch.startInteract();
                 }
             } catch (SocketException t) {
-                if (closed)
+                if (closed) {
                     return;
+                }
                 t.printStackTrace(getMeterpreter().getErrorStream());
             } catch (Throwable t) {
                 t.printStackTrace(getMeterpreter().getErrorStream());

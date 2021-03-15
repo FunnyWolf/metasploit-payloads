@@ -68,7 +68,7 @@ typedef struct ___u128 {
 #undef X509_EXTENSIONS
 #undef X509_CERT_PAIR
 #undef X509_NAME
-
+#define DEBUGTRACE 1
 #ifdef DEBUGTRACE
 #define dprintf(...) real_dprintf(__VA_ARGS__)
 #if DEBUGTRACE == 1
@@ -105,7 +105,7 @@ static _inline void real_dprintf(char *format, ...)
 	va_list args;
 	char buffer[1024];
 	size_t len;
-	_snprintf_s(buffer, sizeof(buffer), sizeof(buffer)-1, "[%x] ", GetCurrentThreadId());
+	_snprintf_s(buffer, sizeof(buffer), sizeof(buffer)-1, "[%04x] ", GetCurrentThreadId());
 	len = strlen(buffer);
 	va_start(args, format);
 	vsnprintf_s(buffer + len, sizeof(buffer)-len, sizeof(buffer)-len - 3, format, args);

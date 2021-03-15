@@ -74,8 +74,9 @@ public class TLVPacket {
         while (remaining > 0) {
             int len = in.readInt();
             int type = in.readInt();
-            if (len > remaining)
+            if (len > remaining) {
                 break;
+            }
             byte[] data = new byte[len - 8];
             remaining -= len;
             Object value;
@@ -85,18 +86,20 @@ public class TLVPacket {
             } else if ((type & TLV_META_TYPE_STRING) != 0) {
                 in.readFully(data);
                 String string = new String(data, "UTF-8");
-                if (!string.endsWith("\0"))
+                if (!string.endsWith("\0")) {
                     throw new IOException("C string is not 0 terminated: " + string);
+                }
                 string = string.substring(0, string.length() - 1);
-                if (string.indexOf('\0') != -1)
+                if (string.indexOf('\0') != -1) {
                     throw new IOException("Embedded null detected: " + string);
+                }
                 value = string;
             } else if ((type & TLV_META_TYPE_QWORD) != 0 && len == 16) {
-                value = new Long(in.readLong());
+                value = in.readLong();
             } else if ((type & TLV_META_TYPE_UINT) != 0 && len == 12) {
-                value = new Integer(in.readInt());
+                value = in.readInt();
             } else if ((type & TLV_META_TYPE_BOOL) != 0 && len == 9) {
-                value = new Boolean(in.readBoolean());
+                value = in.readBoolean();
             } else if ((type & TLV_META_TYPE_RAW) != 0) {
                 in.readFully(data);
                 value = data;
@@ -166,7 +169,7 @@ public class TLVPacket {
      * Add a TLV value to this object.
      */
     public void add(int type, boolean value) throws IOException {
-        add(type, new Boolean(value));
+        add(type, Boolean.valueOf(value));
     }
 
     /**

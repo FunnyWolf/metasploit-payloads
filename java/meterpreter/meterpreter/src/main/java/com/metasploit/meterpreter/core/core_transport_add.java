@@ -6,7 +6,6 @@ import com.metasploit.meterpreter.TLVType;
 import com.metasploit.meterpreter.Transport;
 import com.metasploit.meterpreter.TcpTransport;
 import com.metasploit.meterpreter.HttpTransport;
-import com.metasploit.meterpreter.Utils;
 import com.metasploit.meterpreter.command.Command;
 
 public class core_transport_add implements Command {
@@ -21,10 +20,10 @@ public class core_transport_add implements Command {
             HttpTransport h = new HttpTransport(meterpreter, transportUrl);
 
             // do the HTTP specific stuff here, since we know what we are
-            h.setUserAgent(request.getStringValue(TLVType.TLV_TYPE_TRANS_UA, new String()));
-            h.setProxy(request.getStringValue(TLVType.TLV_TYPE_TRANS_PROXY_HOST, new String()));
-            h.setProxyUser(request.getStringValue(TLVType.TLV_TYPE_TRANS_PROXY_USER, new String()));
-            h.setProxyPass(request.getStringValue(TLVType.TLV_TYPE_TRANS_PROXY_PASS, new String()));
+            h.setUserAgent(request.getStringValue(TLVType.TLV_TYPE_TRANS_UA, ""));
+            h.setProxy(request.getStringValue(TLVType.TLV_TYPE_TRANS_PROXY_HOST, ""));
+            h.setProxyUser(request.getStringValue(TLVType.TLV_TYPE_TRANS_PROXY_USER, ""));
+            h.setProxyPass(request.getStringValue(TLVType.TLV_TYPE_TRANS_PROXY_PASS, ""));
             h.setCertHash(request.getRawValue(TLVType.TLV_TYPE_TRANS_CERT_HASH, null));
 
             t = h;
@@ -36,7 +35,7 @@ public class core_transport_add implements Command {
             long sessionExpiry = request.getIntValue(TLVType.TLV_TYPE_TRANS_SESSION_EXP);
             meterpreter.setExpiry(sessionExpiry);
         }
-        catch (IllegalArgumentException ex) {
+        catch (IllegalArgumentException ignored) {
         }
 
         try {

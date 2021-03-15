@@ -2,7 +2,6 @@ package com.metasploit.meterpreter;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintStream;
 
 /**
  * A channel for a started {@link Process}.
@@ -38,18 +37,24 @@ public class ProcessChannel extends Channel {
      * @param maxLength The maximum number of bytes to read.
      * @return The bytes read, or <code>null</code> if the end of the stream has been reached.
      */
+    @Override
     public synchronized byte[] read(int maxLength) throws IOException, InterruptedException {
-        if (closed)
+        if (closed) {
             return null;
-        if (active)
+        }
+        if (active) {
             throw new IllegalStateException("Cannot read; currently interacting with this channel");
-        if (!waiting || (toRead != null && toRead.length == 0))
+        }
+        if (!waiting || (toRead != null && toRead.length == 0)) {
             return new byte[0];
-        if (toRead == null)
+        }
+        if (toRead == null) {
             return null;
+        }
         return super.read(maxLength);
     }
 
+    @Override
     public void close() throws IOException {
         process.destroy();
         inputStream.close();
@@ -66,6 +71,7 @@ public class ProcessChannel extends Channel {
             this.stderrThread = stderrThread;
         }
 
+        @Override
         public void run() {
             try {
                 stdinThread.start();

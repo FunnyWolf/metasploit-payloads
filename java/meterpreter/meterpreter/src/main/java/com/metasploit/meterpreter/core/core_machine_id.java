@@ -6,10 +6,8 @@ import com.metasploit.meterpreter.TLVType;
 import com.metasploit.meterpreter.Utils;
 import com.metasploit.meterpreter.command.Command;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 
 public class core_machine_id implements Command {
 
@@ -17,11 +15,10 @@ public class core_machine_id implements Command {
     private static String machine_id;
 
     private String getSerial() throws IOException {
-        StringBuffer stringBuffer = new StringBuffer();
-        stringBuffer.append(Utils.runCommand("getprop ro.serialno").trim());
-        stringBuffer.append(Utils.runCommand("getprop ro.product.brand").trim());
-        stringBuffer.append(Utils.runCommand("getprop ro.product.model").trim());
-        return stringBuffer.toString();
+        String stringBuffer = Utils.runCommand("getprop ro.serialno").trim() +
+                Utils.runCommand("getprop ro.product.brand").trim() +
+                Utils.runCommand("getprop ro.product.model").trim();
+        return stringBuffer;
     }
 
     private String getHDLabel() {

@@ -3,7 +3,6 @@ package com.metasploit.meterpreter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.OutputStream;
-import java.io.EOFException;
 import java.io.IOException;
 
 import java.net.ServerSocket;
@@ -26,7 +25,7 @@ public class TcpTransport extends Transport {
     // the fact that MSF thinks we've 'died' (and therefore
     // it hangs) when we terminate the socket. We need to wait
     // for MSF to terminate instead.
-    private class SocketDisposer extends Thread {
+    private static class SocketDisposer extends Thread {
         private final Socket sock;
         private final DataInputStream in;
         private final DataOutputStream out;
@@ -37,6 +36,7 @@ public class TcpTransport extends Transport {
             this.out = out;
         }
 
+        @Override
         public void run() {
             if (this.in != null) {
                 try {
@@ -49,7 +49,7 @@ public class TcpTransport extends Transport {
                     try {
                         this.in.close();
                     }
-                    catch (IOException ex2) {
+                    catch (IOException ignored) {
                     }
                 }
             }
@@ -67,7 +67,7 @@ public class TcpTransport extends Transport {
                         this.out.flush();
                         this.out.close();
                     }
-                    catch (IOException ex2) {
+                    catch (IOException ignored) {
                     }
                 }
             }
@@ -76,7 +76,7 @@ public class TcpTransport extends Transport {
                 try {
                     this.sock.close();
                 }
-                catch (IOException ex) {
+                catch (IOException ignored) {
                 }
             }
         }
@@ -95,16 +95,19 @@ public class TcpTransport extends Transport {
         this.host = url.substring(url.lastIndexOf("/") + 1, portStart);
     }
 
+    @Override
     public void bind(DataInputStream in, OutputStream rawOut) {
         this.inputStream = in;
         this.outputStream = new DataOutputStream(rawOut);
     }
 
+    @Override
     public boolean switchUri(String uri) {
         // tcp transports don't support URL switching
         return false;
     }
 
+    @Override
     public void disconnect() {
         SocketDisposer s = new SocketDisposer(this.sock, this.inputStream, this.outputStream);
         this.sock = null;
@@ -114,6 +117,7 @@ public class TcpTransport extends Transport {
         s.start();
     }
 
+    @Override
     protected boolean tryConnect(Meterpreter met) throws IOException {
         if (this.inputStream != null) {
             // we're already connected
@@ -142,14 +146,17 @@ public class TcpTransport extends Transport {
         return false;
     }
 
+    @Override
     public TLVPacket readPacket() throws IOException {
         return this.readAndDecodePacket(this.inputStream);
     }
 
+    @Override
     public void writePacket(TLVPacket packet, int type) throws IOException {
         this.encodePacketAndWrite(packet, type, this.outputStream);
     }
 
+    @Override
     public boolean dispatch(Meterpreter met) {
         long lastPacket = System.currentTimeMillis();
         int result = 0;

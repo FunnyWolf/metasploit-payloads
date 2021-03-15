@@ -8,7 +8,6 @@ import com.metasploit.meterpreter.Meterpreter;
 import com.metasploit.meterpreter.TLVPacket;
 import com.metasploit.meterpreter.TLVType;
 import com.metasploit.meterpreter.command.Command;
-import com.metasploit.meterpreter.command.NotYetImplementedCommand;
 
 public class stdapi_fs_file_expand_path implements Command {
 
@@ -30,7 +29,9 @@ public class stdapi_fs_file_expand_path implements Command {
             if (key.charAt(0) == '$') {
                 value = "$";
             } else {
-                if (key.charAt(0) == '{' || key.charAt(0) == '%')  key = key.substring(1,key.length()-1);
+                if (key.charAt(0) == '{' || key.charAt(0) == '%') {
+                    key = key.substring(1,key.length()-1);
+                }
                 value = System.getenv(key);
             }
 
@@ -58,9 +59,10 @@ public class stdapi_fs_file_expand_path implements Command {
     }
 
     protected String getShellPath() {
-        if (File.pathSeparatorChar == ';')
+        if (File.pathSeparatorChar == ';') {
             return "cmd.exe";
-        else
+        } else {
             return "/bin/sh";
+        }
     }
 }

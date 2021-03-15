@@ -36,7 +36,7 @@ public class CommandManager {
             apiVersion = ExtensionLoader.V1_5;
             Class.forName("java.util.ServiceLoader");
             apiVersion = ExtensionLoader.V1_6;
-        } catch (Throwable t) {
+        } catch (Throwable ignored) {
         }
         String javaversion = System.getProperty("java.version");
         if (javaversion != null && javaversion.length() > 2) {
@@ -163,13 +163,13 @@ public class CommandManager {
      * Retrieves the list of command IDs loaded by the last core_loadlib call
      */
     public Integer[] getNewCommandIds() {
-        return (Integer[]) newCommands.toArray(new Integer[newCommands.size()]);
+        return (Integer[]) newCommands.toArray(new Integer[0]);
     }
 
     /**
      * Retrieves the list of command IDs
      */
     public Integer[] getCommandsIds() {
-        return (Integer[]) registeredCommands.keySet().toArray(new Integer[registeredCommands.size()]);
+        return (Integer[]) registeredCommands.keySet().toArray(new Integer[0]);
     }
 }

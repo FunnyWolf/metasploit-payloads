@@ -54,7 +54,7 @@ public class stdapi_net_config_get_interfaces_V1_4 extends stdapi_net_config_get
 			if (getMac != null) {
 				return (byte[]) getMac.invoke(iface);
 			}
-		} catch (Exception e) {
+		} catch (Exception ignored) {
 		}
         return null;
     }
@@ -64,15 +64,16 @@ public class stdapi_net_config_get_interfaces_V1_4 extends stdapi_net_config_get
      * the same way for all Java versions.
      *
      * @param iface
-     * @return Array of {@link Interface}
+     * @return Array of {@link Address}
      */
     public Address[] getAddresses(NetworkInterface iface) throws IOException {
         List/* <Address> */result = new ArrayList();
         for (Enumeration en = iface.getInetAddresses(); en.hasMoreElements(); ) {
             InetAddress addr = (InetAddress) en.nextElement();
             byte[] ip = addr.getAddress();
-            if (ip == null)
+            if (ip == null) {
                 continue;
+            }
             int prefixLength = 0;
             if (ip.length == 4) {
                 // guess netmask by network class...
@@ -86,7 +87,7 @@ public class stdapi_net_config_get_interfaces_V1_4 extends stdapi_net_config_get
             }
             result.add(new Address(ip, prefixLength, null));
         }
-        return (Address[]) result.toArray(new Address[result.size()]);
+        return (Address[]) result.toArray(new Address[0]);
     }
 
     /**

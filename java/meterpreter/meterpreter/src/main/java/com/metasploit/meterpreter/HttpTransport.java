@@ -1,7 +1,6 @@
 package com.metasploit.meterpreter;
 
 import com.metasploit.meterpreter.command.Command;
-import com.metasploit.stage.ConfigParser;
 import com.metasploit.stage.HttpConnection;
 import com.metasploit.stage.PayloadTrustManager;
 import com.metasploit.stage.TransportConfig;
@@ -42,10 +41,12 @@ public class HttpTransport extends Transport {
         setTimeouts(transportConfig);
     }
 
+    @Override
     public void bind(DataInputStream in, OutputStream rawOut) {
         // http, we don't bind to anything as we're stateless
     }
 
+    @Override
     public boolean switchUri(String uri) {
         try {
             // can't use getAuthority() here thanks to java 1.2. Ugh.
@@ -105,9 +106,11 @@ public class HttpTransport extends Transport {
         return this.customHeaders;
     }
 
+    @Override
     public void disconnect() {
     }
 
+    @Override
     protected boolean tryConnect(Meterpreter met) throws IOException {
         URLConnection conn = this.createConnection();
 
@@ -136,13 +139,14 @@ public class HttpTransport extends Transport {
             // this can happens on reconnect
             return true;
         }
-        catch (Exception ex) {
+        catch (Exception ignored) {
         }
 
         // we get here, thins aren't good.
         return false;
     }
 
+    @Override
     public TLVPacket readPacket() throws IOException {
         URLConnection conn = this.createConnection();
 
@@ -157,12 +161,13 @@ public class HttpTransport extends Transport {
             inputStream.close();
             return request;
         }
-        catch (EOFException ex) {
+        catch (EOFException ignored) {
         }
 
         return null;
     }
 
+    @Override
     public void writePacket(TLVPacket packet, int type) throws IOException {
         URLConnection conn = this.createConnection();
 
@@ -188,6 +193,7 @@ public class HttpTransport extends Transport {
         }
     }
 
+    @Override
     public boolean dispatch(Meterpreter met) {
         long lastPacket = System.currentTimeMillis();
         long ecount = 0;

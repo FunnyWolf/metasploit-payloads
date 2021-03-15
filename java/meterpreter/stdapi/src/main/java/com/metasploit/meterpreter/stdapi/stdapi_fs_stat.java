@@ -24,10 +24,12 @@ public class stdapi_fs_stat implements Command {
             }
         }
         File file = new File(path);
-        if (!file.exists())
+        if (!file.exists()) {
             file = Loader.expand(path);
-        if (!file.exists())
+        }
+        if (!file.exists()) {
             throw new IOException("File/directory does not exist: " + path);
+        }
         response.add(TLVType.TLV_TYPE_STAT_BUF, stat(file));
         return ERROR_SUCCESS;
     }
@@ -58,7 +60,7 @@ public class stdapi_fs_stat implements Command {
         dos.writeInt(le(0)); // rdev
         dos.writeLong(long_le(0)); // ino
         dos.writeLong(long_le(length)); // size
-        long mtime = (long) (lastModified / 1000);
+        long mtime = lastModified / 1000;
         dos.writeLong(long_le(mtime)); // atime
         dos.writeLong(long_le(mtime)); // mtime
         dos.writeLong(long_le(mtime)); // ctime

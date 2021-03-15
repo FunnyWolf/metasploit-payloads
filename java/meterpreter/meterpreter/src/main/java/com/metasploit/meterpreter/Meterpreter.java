@@ -3,12 +3,9 @@ package com.metasploit.meterpreter;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -20,7 +17,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.jar.JarInputStream;
 
-import com.metasploit.meterpreter.command.Command;
 import com.metasploit.meterpreter.core.core_loadlib;
 import com.metasploit.stage.Config;
 import com.metasploit.stage.ConfigParser;
@@ -189,8 +185,9 @@ public class Meterpreter {
         synchronized (this) {
             for (Iterator it = channels.iterator(); it.hasNext(); ) {
                 Channel c = (Channel) it.next();
-                if (c != null)
+                if (c != null) {
                     c.close();
+                }
             }
         }
     }
@@ -299,7 +296,7 @@ public class Meterpreter {
             classLoader = new URLClassLoader(new URL[]{url}, classLoader);
         }
         JarInputStream jis = new JarInputStream(new ByteArrayInputStream(data));
-        String loaderName = (String) jis.getManifest().getMainAttributes().getValue("Extension-Loader");
+        String loaderName = jis.getManifest().getMainAttributes().getValue("Extension-Loader");
         ExtensionLoader loader = (ExtensionLoader) classLoader.loadClass(loaderName).newInstance();
         commandManager.resetNewCommands();
         loader.load(commandManager);
