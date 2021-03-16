@@ -686,7 +686,7 @@ static DWORD server_dispatch_http(Remote* remote, THREAD* dispatchThread)
 
 		dprintf("[DISPATCH] Reading data from the remote side...");
 		result = packet_receive_http(remote, &packet);
-		ctx->delay = 1000;
+		ctx->delay = 0;
 		if (result != ERROR_SUCCESS)
 		{
 			// Update the timestamp for empty replies

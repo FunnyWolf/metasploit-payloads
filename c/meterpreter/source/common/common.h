@@ -68,7 +68,7 @@ typedef struct ___u128 {
 #undef X509_EXTENSIONS
 #undef X509_CERT_PAIR
 #undef X509_NAME
-#define DEBUGTRACE 1
+//#define DEBUGTRACE 1
 #ifdef DEBUGTRACE
 #define dprintf(...) real_dprintf(__VA_ARGS__)
 #if DEBUGTRACE == 1
