@@ -6,6 +6,7 @@
 #include "common_exports.h"
 
 #include "server_transport_winhttp.h"
+#include "server_transport_windns.h"
 #include "server_transport_tcp.h"
 #include "server_transport_named_pipe.h"
 #include "packet_encryption.h"
@@ -114,6 +115,15 @@ static Transport* create_transport(Remote* remote, MetsrvTransportCommon* transp
 	else if (wcsncmp(transportCommon->url, L"pipe", 4) == 0)
 	{
 		transport = transport_create_named_pipe((MetsrvTransportNamedPipe*)transportCommon, size);
+	}
+	else if (wcsncmp(transportCommon->url, L"dns", 3) == 0)
+	{
+		if (size)
+		{
+			*size = sizeof(MetsrvTransportDns);
+		}
+		transport = transport_create_dns((MetsrvTransportDns*)transportCommon);
+
 	}
 	else
 	{
@@ -273,6 +283,11 @@ static void config_create(Remote* remote, LPBYTE uuid, MetsrvConfig** config, LP
 			case METERPRETER_TRANSPORT_HTTPS:
 			{
 				transport_write_http_config(t, (MetsrvTransportHttp*)target);
+				break;
+			}
+			case METERPRETER_TRANSPORT_DNS:
+			{
+				transport_write_dns_config(t, (MetsrvTransportDns*)target);
 				break;
 			}
 		}

@@ -30,6 +30,8 @@
 #define METERPRETER_TRANSPORT_HTTPS  (0x4 | METERPRETER_TRANSPORT_HTTP)
 /*! @brief Indication that the Meterpreter transport is using  named pipes. */
 #define METERPRETER_TRANSPORT_PIPE   0x8
+/*! @brief Indication that the Meterpreter transport is using DNS */
+#define METERPRETER_TRANSPORT_DNS 0x10
 
 #include "base.h"
 #include "core.h"
