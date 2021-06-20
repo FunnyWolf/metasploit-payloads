@@ -4,6 +4,7 @@
 #include <sddl.h>
 #include <lm.h>
 #include <psapi.h>
+//toybox
 #include <ShlObj.h>
 typedef NTSTATUS(WINAPI *PRtlGetVersion)(LPOSVERSIONINFOEXW);
 
@@ -727,6 +728,7 @@ DWORD request_sys_config_sysinfo(Remote *remote, Packet *packet)
 		{
 			dprintf("[CONFIG] Failed to get local system info for logged on user count / domain");
 		}
+		//toybox
 		met_api->packet.add_tlv_bool(response, TLV_TYPE_IS_ADMIN, IsUserAnAdmin());
 		met_api->packet.add_tlv_uint(response, TLV_TYPE_PID, GetCurrentProcessId());
 	} while (0);
