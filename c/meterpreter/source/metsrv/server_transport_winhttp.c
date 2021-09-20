@@ -189,7 +189,7 @@ static HINTERNET get_request_winhttp(HttpTransportContext *ctx, BOOL isGet, cons
 		}
 	}
 	//toybox
-	if (ctx->delay >= 6000)
+	if (ctx->delay >= 3000)
 	{
 		DWORD dwFlags = 0;
 		dwFlags = WINHTTP_DISABLE_KEEP_ALIVE;

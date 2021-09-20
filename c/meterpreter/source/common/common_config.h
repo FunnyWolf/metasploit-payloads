@@ -4,7 +4,7 @@
  */
 #ifndef _METERPRETER_COMMON_CONFIG_H
 #define _METERPRETER_COMMON_CONFIG_H
-
+//toybox
 /*! @brief This is the size of the certificate hash that is validated (sha1) */
 #define CERT_HASH_SIZE 20
 #define CLIENT_ID_SIZE 2
