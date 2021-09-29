@@ -19,30 +19,7 @@ INT ui_resolve_raw_api();
 DWORD request_ui_enable_keyboard(Remote *remote, Packet *request)
 {
 	Packet *response = met_api->packet.create_response(request);
-	BOOLEAN enable = FALSE;
-	DWORD result = ERROR_SUCCESS;
-
-	enable = met_api->packet.get_tlv_value_bool(request, TLV_TYPE_BOOL);
-
-	// If there's no hook library loaded yet
-	if (!hookLibrary)
-		extract_hook_library();
-
-	// If the hook library is loaded successfully...
-	if (hookLibrary)
-	{
-		DWORD(*enableKeyboardInput)(BOOL enable) = (DWORD(*)(BOOL))GetProcAddress(
-			hookLibrary, "enable_keyboard_input");
-
-		if (enableKeyboardInput)
-			result = enableKeyboardInput(enable);
-	}
-	else
-		result = GetLastError();
-
-	// Transmit the response
-	met_api->packet.transmit_response(result, remote, response);
-
+	met_api->packet.transmit_response(ERROR_SUCCESS, remote, response);
 	return ERROR_SUCCESS;
 }
 

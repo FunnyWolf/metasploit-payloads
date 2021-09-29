@@ -23,7 +23,7 @@ BOOL verifyNullMem(LPVOID addr, SIZE_T size);
 DWORD ninjasploit_install_hooks(Remote *remote, Packet *packet) {
 
 	Packet* response = met_api->packet.create_response(packet);
-
+	dprintf("ninjasploit_install_hooks start");
 	CreateProcessInternalW = (PCreateProcessInternalW)GetProcAddress(GetModuleHandle("KERNELBASE.dll"), "CreateProcessInternalW");
 	NtCreateThreadEx = (PNtCreateThreadEx)GetProcAddress(GetModuleHandle("ntdll.dll"), "NtCreateThreadEx");
 
@@ -75,26 +75,27 @@ DWORD ninjasploit_install_hooks(Remote *remote, Packet *packet) {
 
 	met_api->packet.add_tlv_string(response, TLV_TYPE_NINJASPLOIT_INSTALL_HOOKS, "Hooks installed!");
 	met_api->packet.transmit_response(ERROR_SUCCESS, remote, response);
-
+	dprintf("ninjasploit_install_hooks finish");
 	return ERROR_SUCCESS;
 }
 
 
 DWORD ninjasploit_restore_hooks(Remote *remote, Packet *packet) {
+	dprintf("ninjasploit_restore_hooks start");
 	Packet* response = met_api->packet.create_response(packet);
 
 	BOOL restored = FALSE;
-
+	dprintf("ninjasploit_restore_hooks start");
 	if (createProcessHookResult != NULL) {
 		restoreHook(createProcessHookResult);
 		restored = TRUE;
 	}
-
+	dprintf("ninjasploit_restore_hooks min");
 	if (createRemoteThreadHookResult != NULL) {
 		restoreHook(createRemoteThreadHookResult);
 		restored = TRUE;
 	}
-
+	dprintf("ninjasploit_restore_hooks fin");
 	PCHAR msg = restored ? "Restored all hooks" : "There was no hooks to restore";
 
 	met_api->packet.add_tlv_string(response, TLV_TYPE_NINJASPLOIT_RESTORE_HOOKS, msg);

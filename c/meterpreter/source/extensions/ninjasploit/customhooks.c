@@ -1,6 +1,5 @@
 #include "customhooks.h"
 
-
 BOOL 
 WINAPI
 hookCreateProcessInternalW(HANDLE hToken,
@@ -16,22 +15,23 @@ hookCreateProcessInternalW(HANDLE hToken,
 	LPPROCESS_INFORMATION lpProcessInformation,
 	PHANDLE hNewToken)
 {
+	dprintf("hookCreateProcessInternalW called\n");
 	BOOL res = FALSE;
 	restoreHook(createProcessHookResult);
 	createProcessHookResult = NULL;
 
-	printf("My createProcess called\n");
+	dprintf("My createProcess called\n");
 
 	LPVOID options = makeProcessOptions(hToken, lpApplicationName, lpCommandLine, lpProcessAttributes, lpThreadAttributes, bInheritHandles, dwCreationFlags, lpEnvironment, lpCurrentDirectory, lpStartupInfo, lpProcessInformation, hNewToken);
 
 	HANDLE thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)createProcessNinja, options, 0, NULL);
 
-	printf("[!] Waiting for thread to finish\n");
+	dprintf("[!] Waiting for thread to finish\n");
 	WaitForSingleObject(thread, INFINITE);
 
 	GetExitCodeThread(thread, (LPDWORD)& res);
 
-	printf("[!] Thread finished\n");
+	dprintf("[!] Thread finished\n");
 
 	CloseHandle(thread);
 

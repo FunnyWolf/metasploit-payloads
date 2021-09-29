@@ -50,7 +50,7 @@ END
 // IMG
 //
 
-IDR_HOOK_DLL            IMG     DISCARDABLE     "hook.dll"
+
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 

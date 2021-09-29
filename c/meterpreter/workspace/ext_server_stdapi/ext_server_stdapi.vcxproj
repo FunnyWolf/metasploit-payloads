@@ -422,9 +422,6 @@ copy /y "$(TargetDir)$(TargetFileName)" "$(ProjectDir)..\..\output\"</Command>
     <ClInclude Include="..\..\source\extensions\stdapi\server\fs\fs_local.h" />
     <ClInclude Include="..\..\source\extensions\stdapi\server\fs\search.h" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="..\..\source\extensions\stdapi\server\resource\hook.dll" />
-  </ItemGroup>
   <Choose>
     <When Condition="'$(Platform)'=='Win32'" />
   </Choose>
