@@ -600,10 +600,14 @@ static DWORD server_init_winhttp(Transport* transport)
 	{
 		dprintf("[DISPATCH] Configuring with proxy: %S", ctx->proxy);
 		ctx->internet = WinHttpOpen(ctx->ua, WINHTTP_ACCESS_TYPE_NAMED_PROXY, ctx->proxy, WINHTTP_NO_PROXY_BYPASS, 0);
+		if (!WinHttpSetTimeouts(ctx->internet, 3000, 3000, 3000, 3000))
+			return GetLastError();
 	}
 	else
 	{
 		ctx->internet = WinHttpOpen(ctx->ua, WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+		if (!WinHttpSetTimeouts(ctx->internet, 3000, 3000, 3000, 3000))
+			return GetLastError();
 	}
 
 	if (!ctx->internet)
@@ -764,6 +768,10 @@ static DWORD server_dispatch_http(Remote* remote, THREAD* dispatchThread)
 			{
 				// something went wrong with WinINET so break.
 				break;
+			}
+			else if (result == ERROR_NOT_FOUND) {
+				//send_req or receive_response error
+				ecount = 30;
 			}
 
 			delay = 10 * ecount;

