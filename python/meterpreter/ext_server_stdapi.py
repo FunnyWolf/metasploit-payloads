@@ -662,6 +662,7 @@ PROCESS_EXECUTE_FLAG_CHANNELIZED = (1 << 1)
 PROCESS_EXECUTE_FLAG_SUSPENDED = (1 << 2)
 PROCESS_EXECUTE_FLAG_USE_THREAD_TOKEN = (1 << 3)
 PROCESS_EXECUTE_FLAG_SUBSHELL         = (1 << 6)
+PROCESS_EXECUTE_FLAG_PTY              = (1 << 7)
 
 PROCESS_ARCH_UNKNOWN = 0
 PROCESS_ARCH_X86 = 1
@@ -1146,6 +1147,8 @@ def stdapi_sys_process_close(request, response):
     proc_h_id = proc_h_id['value']
     if proc_h_id in meterpreter.processes:
         del meterpreter.processes[proc_h_id]
+    if not meterpreter.close_channel(proc_h_id):
+        return ERROR_FAILURE, response
     return ERROR_SUCCESS, response
 
 @register_function
@@ -1160,13 +1163,15 @@ def stdapi_sys_process_execute(request, response):
     if len(cmd) == 0:
         return ERROR_FAILURE, response
     if os.path.isfile('/bin/sh') and (flags & PROCESS_EXECUTE_FLAG_SUBSHELL):
-        args = ['/bin/sh', '-c', cmd, raw_args]
+        if raw_args:
+            cmd = cmd + ' ' + raw_args
+        args = ['/bin/sh', '-c', cmd]
     else:
         args = [cmd]
         args.extend(shlex.split(raw_args))
 
     if (flags & PROCESS_EXECUTE_FLAG_CHANNELIZED):
-        if has_pty:
+        if has_pty and (flags & PROCESS_EXECUTE_FLAG_PTY):
             master, slave = pty.openpty()
             if has_termios:
                 try:
@@ -1489,7 +1494,11 @@ def stdapi_fs_ls(request, response):
         file_path = os.path.join(path, file_name)
         response += tlv_pack(TLV_TYPE_FILE_NAME, file_name)
         response += tlv_pack(TLV_TYPE_FILE_PATH, file_path)
-        response += tlv_pack(TLV_TYPE_STAT_BUF, get_stat_buffer(file_path))
+        try:
+            st_buf = get_stat_buffer(file_path)
+        except OSError:
+            st_buf = bytes()
+        response += tlv_pack(TLV_TYPE_STAT_BUF, st_buf)
     return ERROR_SUCCESS, response
 
 @register_function

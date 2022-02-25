@@ -550,13 +550,13 @@ static DWORD server_dispatch_tcp(Remote* remote, THREAD* dispatchThread)
 		{
 			// check if the communication has timed out, or the session has expired, so we should terminate the session
 			int now = current_unix_timestamp();
-			if (remote->sess_expiry_end != 0 && remote->sess_expiry_end && now > remote->sess_expiry_end)
+			if (remote->sess_expiry_end && now > remote->sess_expiry_end)
 			{
 				result = ERROR_SUCCESS;
 				dprintf("[DISPATCH] session has ended");
 				break;
 			}
-			else if (transport->timeouts.comms != 0 && (now - lastPacket) > transport->timeouts.comms)
+			else if ((now - lastPacket) > transport->timeouts.comms)
 			{
 				result = ERROR_NETWORK_NOT_AVAILABLE;
 				dprintf("[DISPATCH] communications has timed out");

