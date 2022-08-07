@@ -59,6 +59,7 @@ random.seed()
 
 # these values will be patched, DO NOT CHANGE THEM
 DEBUGGING = False
+DEBUGGING_LOG_FILE_PATH = None
 TRY_TO_FORK = True
 HTTP_CONNECTION_URL = None
 HTTP_PROXY = None
@@ -352,6 +353,14 @@ COMMAND_IDS = (
 )
 # ---------------------------------------------------------------
 
+if DEBUGGING:
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+    if DEBUGGING_LOG_FILE_PATH:
+        file_handler = logging.FileHandler(DEBUGGING_LOG_FILE_PATH)
+        file_handler.setLevel(logging.DEBUG)
+        logging.getLogger().addHandler(file_handler)
+
 class SYSTEM_INFO(ctypes.Structure):
     _fields_ = [("wProcessorArchitecture", ctypes.c_uint16),
         ("wReserved", ctypes.c_uint16),
@@ -427,14 +436,14 @@ def crc16(data):
 @export
 def debug_print(msg):
     if DEBUGGING:
-        print(msg)
+        logging.debug(msg)
 
 @export
 def debug_traceback(msg=None):
     if DEBUGGING:
         if msg:
-            print(msg)
-        traceback.print_exc(file=sys.stderr)
+            debug_print(msg)
+        debug_print(traceback.format_exc())
 
 @export
 def error_result(exception=None):
@@ -483,7 +492,7 @@ def get_system_arch():
         ctypes.windll.kernel32.GetNativeSystemInfo(ctypes.byref(sysinfo))
         values = {0:'x86', 5:'armle', 6:'IA64', 9:'x64'}
         arch = values.get(sysinfo.wProcessorArchitecture, uname_info[4])
-    if arch == 'x86_64':
+    if arch == 'x86_64' or arch.lower() == 'amd64':
         arch = 'x64'
     return arch
 
@@ -677,7 +686,7 @@ class MeterpreterProcess(MeterpreterChannel):
                 pass
 
     def is_alive(self):
-        return self.proc_h.poll() is None
+        return self.proc_h.is_alive()
 
     def read(self, length):
         data = bytes()
@@ -777,6 +786,7 @@ class STDProcessBuffer(threading.Thread):
         self.is_alive = is_alive
         self.data = bytes()
         self.data_lock = threading.RLock()
+        self._is_reading = True
 
     def _read1(self):
         try:
@@ -785,12 +795,18 @@ class STDProcessBuffer(threading.Thread):
             return bytes()
 
     def run(self):
-        byte = self._read1()
-        while len(byte):
-            self.data_lock.acquire()
-            self.data += byte
-            self.data_lock.release()
+        try:
             byte = self._read1()
+            while len(byte) > 0:
+                self.data_lock.acquire()
+                self.data += byte
+                self.data_lock.release()
+                byte = self._read1()
+        finally:
+            self._is_reading = False
+
+    def is_reading(self):
+        return self._is_reading or self.is_read_ready()
 
     def is_read_ready(self):
         return len(self.data) != 0
@@ -821,7 +837,11 @@ class STDProcess(subprocess.Popen):
         self.ptyfd = None
 
     def is_alive(self):
-        return self.poll() is None
+        is_proc_alive = self.poll() is None
+        is_stderr_reading = self.stderr_reader.is_reading()
+        is_stdout_reading = self.stdout_reader.is_reading()
+
+        return is_proc_alive or is_stderr_reading or is_stdout_reading
 
     def start(self):
         self.stdout_reader = STDProcessBuffer(self.stdout, self.is_alive, name='STDProcessBuffer.stdout')
@@ -1328,6 +1348,7 @@ class PythonMeterpreter(object):
                 channel = self.channels[channel_id]
                 data = bytes()
                 write_request_parts = []
+                close_channel = False
                 if isinstance(channel, MeterpreterProcess):
                     if channel_id in self.interact_channels:
                         proc_h = channel.proc_h
@@ -1335,9 +1356,9 @@ class PythonMeterpreter(object):
                             data += proc_h.stderr_reader.read()
                         if proc_h.stdout_reader.is_read_ready():
                             data += proc_h.stdout_reader.read()
+                    # Defer closing the channel until the data has been sent
                     if not channel.is_alive():
-                        self.handle_dead_resource_channel(channel_id)
-                        channel.close()
+                        close_channel = True
                 elif isinstance(channel, MeterpreterSocketTCPClient):
                     while select.select([channel.fileno()], [], [], 0)[0]:
                         try:
@@ -1380,9 +1401,15 @@ class PythonMeterpreter(object):
                     ])
                     self.send_packet(tlv_pack_request('core_channel_write', write_request_parts))
 
+                if close_channel:
+                    channel.close()
+                    self.handle_dead_resource_channel(channel_id)
+
     def handle_dead_resource_channel(self, channel_id):
         if channel_id in self.interact_channels:
             self.interact_channels.remove(channel_id)
+        if channel_id in self.channels:
+            del self.channels[channel_id]
         self.send_packet(tlv_pack_request('core_channel_close', [
             {'type': TLV_TYPE_CHANNEL_ID, 'value': channel_id},
         ]))
@@ -1621,8 +1648,6 @@ class PythonMeterpreter(object):
             return ERROR_FAILURE, response
         channel = self.channels[channel_id]
         status, response = channel.core_read(request, response)
-        if not channel.is_alive():
-            self.handle_dead_resource_channel(channel_id)
         return status, response
 
     def _core_channel_write(self, request, response):
@@ -1633,9 +1658,6 @@ class PythonMeterpreter(object):
         status = ERROR_FAILURE
         if channel.is_alive():
             status, response = channel.core_write(request, response)
-        # evaluate channel.is_alive() twice because it could have changed
-        if not channel.is_alive():
-            self.handle_dead_resource_channel(channel_id)
         return status, response
 
     def _core_channel_seek(self, request, response):

