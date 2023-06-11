@@ -20,6 +20,68 @@ extern IN6_ADDR in6addr_any;
 #endif
 
 /*!
+ * @brief Get the address family.
+ * @param address The address.
+ * @returns Returns the address family.
+ * @retval AF_INET, AF_INET6, AF_UNSPEC
+ */
+static int get_ai_family(const char* address) {
+	struct addrinfo* resolved_host = NULL;
+	static struct addrinfo hints = {
+		.ai_family = AF_UNSPEC,
+		.ai_flags = AI_NUMERICHOST
+	};
+
+	int ai_family = AF_UNSPEC;
+	if (getaddrinfo(address, NULL, &hints, &resolved_host) == 0) {
+		ai_family = resolved_host->ai_family;
+		freeaddrinfo(resolved_host);
+	}
+	return ai_family;
+}
+
+// @brief see https://learn.microsoft.com/en-us/windows/win32/api/ws2tcpip/nf-ws2tcpip-inet_pton
+static int inet_pton(int af, const char* src, void* dst) {
+	errno_t error = 0;
+	struct addrinfo* resolved_host = NULL;
+	struct addrinfo hints = {
+		.ai_family = af,
+		.ai_flags = AI_NUMERICHOST
+	};
+
+	if ((src == NULL) || (dst == NULL)) {
+		WSASetLastError(WSAEFAULT);
+		return -1;
+	}
+
+	if ((af != AF_INET) && (af != AF_INET6)) {
+		WSASetLastError(WSAEAFNOSUPPORT);
+		return -1;
+	}
+	
+	int ai_family = AF_UNSPEC;
+	if (getaddrinfo(src, NULL, &hints, &resolved_host)) {
+		return 0;
+	}
+	if (resolved_host->ai_family != af) {  // verify the returned address is of the expected family
+		freeaddrinfo(resolved_host);
+		return 0;
+	}
+	if (af == AF_INET) {
+		error = memcpy_s(dst, sizeof(struct in_addr), &((struct sockaddr_in*)resolved_host->ai_addr)->sin_addr, sizeof(struct in_addr));
+	} else if (af == AF_INET6) {
+		error = memcpy_s(dst, sizeof(struct in_addr6), &((struct sockaddr_in6*)resolved_host->ai_addr)->sin6_addr, sizeof(struct in_addr6));
+	}
+	freeaddrinfo(resolved_host);
+
+	if (error) {
+		return 0;
+	}
+	
+	return 1;
+}
+
+/*!
  * @brief Deallocates and cleans up the attributes of a tcp server socket context.
  * @param ctx Pointer to the context to free.
  */
@@ -277,12 +339,13 @@ DWORD tcp_channel_server_notify(Remote * remote, TcpServerContext * serverCtx)
 DWORD request_net_tcp_server_channel_open(Remote * remote, Packet * packet)
 {
 	DWORD dwResult = ERROR_SUCCESS;
+	int iResult = 0;
 	TcpServerContext * ctx = NULL;
 	Packet * response = NULL;
 	char * localHost = NULL;
 	StreamChannelOps chops = { 0 };
 	USHORT localPort = 0;
-	BOOL v4Fallback = FALSE;
+	int ai_family = AF_UNSPEC;
 
 	do
 	{
@@ -305,12 +368,31 @@ DWORD request_net_tcp_server_channel_open(Remote * remote, Packet * packet)
 		localPort = (USHORT)(met_api->packet.get_tlv_value_uint(packet, TLV_TYPE_LOCAL_PORT) & 0xFFFF);
 		localHost = met_api->packet.get_tlv_value_string(packet, TLV_TYPE_LOCAL_HOST);
 
-		ctx->fd = WSASocket(AF_INET6, SOCK_STREAM, IPPROTO_TCP, 0, 0, 0);
+		if ((localHost) && (strlen(localHost) == 0)) {
+			// normalize empty host strings
+			localHost = NULL;
+		}
+		if (localHost) {
+			ai_family = get_ai_family(localHost);
+			if ((ai_family != AF_INET) && (ai_family != AF_INET6)) {
+				BREAK_WITH_ERROR("[TCP-SERVER] request_net_tcp_server_channel_open. bind failed, invalid address (unsupported family)", ERROR_INVALID_PARAMETER);
+			}
+		}
+		else {
+			ai_family = AF_INET6;
+		}
+
+		ctx->fd = WSASocket(ai_family, SOCK_STREAM, IPPROTO_TCP, 0, 0, 0);
 		if (ctx->fd == INVALID_SOCKET)
 		{
-			v4Fallback = TRUE;
+			if ((ai_family == AF_INET6) && (!localHost)) {
+				// if the socket that failed to be created was IPv6 but it was only selected because no
+				// address was specified, fail back to IPv4
+				ai_family = AF_INET;
+				ctx->fd = WSASocket(ai_family, SOCK_STREAM, IPPROTO_TCP, 0, 0, 0);
+			}	
 		}
-		else
+		else if (ai_family == AF_INET6)
 		{
 			int no = 0;
 			if (setsockopt(ctx->fd, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&no, sizeof(no)) == SOCKET_ERROR)
@@ -319,29 +401,56 @@ DWORD request_net_tcp_server_channel_open(Remote * remote, Packet * packet)
 				// support IPv4 and IPv6 we'd need to create two separate sockets. IPv6 on XP isn't that common
 				// so instead, we'll just revert back to v4 and listen on that one address instead.
 				closesocket(ctx->fd);
-				v4Fallback = TRUE;
+				ai_family = AF_INET;
+				ctx->fd = WSASocket(ai_family, SOCK_STREAM, IPPROTO_TCP, 0, 0, 0);
 			}
+		}
+		if (ctx->fd == INVALID_SOCKET) {
+			BREAK_ON_WSAERROR("[TCP-SERVER] request_net_tcp_server_channel_open. WSASocket failed");
 		}
 
 		struct sockaddr_in6 sockAddr = { 0 };
 		DWORD sockAddrSize = 0;
 
-		if (v4Fallback)
+		iResult = 1; // inet_pton success
+		if (ai_family == AF_INET)
 		{
 			struct sockaddr_in* v4Addr = (struct sockaddr_in*)&sockAddr;
-			v4Addr->sin_addr.s_addr = localHost == NULL ? htons(INADDR_ANY) : inet_addr(localHost);
+			if (localHost) {
+				iResult = inet_pton(AF_INET, localHost, &v4Addr->sin_addr);
+			}
+			else {
+				v4Addr->sin_addr.s_addr = htons(INADDR_ANY);
+			}
 			v4Addr->sin_family = AF_INET;
 			v4Addr->sin_port = htons(localPort);
 			sockAddrSize = sizeof(struct sockaddr_in);
+			ctx->ipv6 = FALSE;
 		}
-		else
+		else if (ai_family == AF_INET6)
 		{
-			// TODO: add IPv6 address binding support
-			sockAddr.sin6_addr = in6addr_any;
+			if (localHost) {
+				iResult = inet_pton(AF_INET6, localHost, &sockAddr.sin6_addr);
+			}
+			else {
+				sockAddr.sin6_addr = in6addr_any;
+			}
 			sockAddr.sin6_family = AF_INET6;
 			sockAddr.sin6_port = htons(localPort);
 			sockAddrSize = sizeof(struct sockaddr_in6);
+			ctx->ipv6 = TRUE;
 		}
+		else {
+			BREAK_WITH_ERROR("[TCP-SERVER] request_net_tcp_server_channel_open. bind failed, invalid address (unsupported family)", ERROR_INVALID_PARAMETER);
+		}
+
+		// inet_pton returns 1 on success, 0 and -1 on failure depending on if an error is placed in WSAGetLastError
+		if (iResult == -1) {
+			BREAK_ON_WSAERROR("[TCP-SERVER] request_net_tcp_server_channel_open. bind failed, invalid address (inet_pton failure, WSAError)");
+		} else if (iResult != 1) {
+			BREAK_WITH_ERROR("[TCP-SERVER] request_net_tcp_server_channel_open. bind failed, invalid address (inet_pton failure)", ERROR_INVALID_PARAMETER);
+		}
+
 
 		if (bind(ctx->fd, (SOCKADDR *)&sockAddr, sockAddrSize) == SOCKET_ERROR)
 		{
@@ -363,8 +472,6 @@ DWORD request_net_tcp_server_channel_open(Remote * remote, Packet * packet)
 		{
 			BREAK_ON_WSAERROR("[TCP-SERVER] request_net_tcp_server_channel_open. WSAEventSelect failed");
 		}
-
-		ctx->ipv6 = !v4Fallback;
 
 		memset(&chops, 0, sizeof(StreamChannelOps));
 		chops.native.context = ctx;

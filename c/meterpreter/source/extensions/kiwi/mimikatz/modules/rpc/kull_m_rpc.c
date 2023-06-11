@@ -38,7 +38,7 @@ BOOL kull_m_rpc_createBinding(LPCWSTR uuid, LPCWSTR ProtSeq, LPCWSTR NetworkAddr
 	BOOL status = FALSE;
 	RPC_STATUS rpcStatus;
 	RPC_WSTR StringBinding = NULL;
-	RPC_SECURITY_QOS SecurityQOS = {RPC_C_SECURITY_QOS_VERSION, RPC_C_QOS_CAPABILITIES_MUTUAL_AUTH, RPC_C_QOS_IDENTITY_STATIC, ImpersonationType};
+	RPC_SECURITY_QOS SecurityQOS = {RPC_C_SECURITY_QOS_VERSION, RPC_C_QOS_CAPABILITIES_MUTUAL_AUTH | (ImpersonationType == RPC_C_IMP_LEVEL_DELEGATE) ? RPC_C_QOS_CAPABILITIES_IGNORE_DELEGATE_FAILURE : 0, RPC_C_QOS_IDENTITY_STATIC, ImpersonationType};
 	LPWSTR fullServer = NULL;
 
 	*hBinding = NULL;
@@ -234,11 +234,7 @@ void kull_m_rpc_getArgs(int argc, wchar_t * argv[], LPCWSTR *szRemote, LPCWSTR *
 	}
 }
 
-#ifdef __MINGW32__
-void __RPC_FAR* __RPC_USER MIDL_user_allocate(SIZE_T cBytes)
-#else
 void __RPC_FAR* __RPC_USER MIDL_user_allocate(size_t cBytes)
-#endif
 {
 	return LocalAlloc(LPTR, cBytes);
 }

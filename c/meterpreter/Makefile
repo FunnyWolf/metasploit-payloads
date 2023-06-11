@@ -21,9 +21,11 @@ meterpreter: meterpreter-x86 meterpreter-x64
 meterpreter-x86: meterpreter-x86-gen meterpreter-x86-build
 
 meterpreter-x86-gen:
+	@cmake -S workspace -B workspace/build/mingw-x64-dump-sam -DBUILD_ALL=OFF -DBUILD_PLG_DUMPSAM=ON $(COMMON_GEN_X64)
 	@cmake -S workspace -B workspace/build/mingw-x86 $(COMMON_GEN_X86)
 
 meterpreter-x86-build:
+	@cmake --build workspace/build/mingw-x64-dump-sam $(COMMON_BUILD)
 	@cmake --build workspace/build/mingw-x86 $(COMMON_BUILD)
 
 meterpreter-x86-clean:
@@ -91,9 +93,11 @@ meterpreter-ext-priv: meterpreter-ext-priv-x86 meterpreter-ext-priv-x64
 meterpreter-ext-priv-x86: meterpreter-ext-priv-x86-gen meterpreter-ext-priv-x86-build
 
 meterpreter-ext-priv-x86-gen:
+	@cmake -S workspace -B workspace/build/mingw-x64-dump-sam -DBUILD_ALL=OFF -DBUILD_PLG_DUMPSAM=ON $(COMMON_GEN_X64)
 	@cmake -S workspace -B workspace/build/mingw-x86-ext-priv -DBUILD_ALL=OFF -DBUILD_EXT_PRIV=ON $(COMMON_GEN_X86)
 
 meterpreter-ext-priv-x86-build:
+	@cmake --build workspace/build/mingw-x64-dump-sam $(COMMON_BUILD)
 	@cmake --build workspace/build/mingw-x86-ext-priv $(COMMON_BUILD)
 
 meterpreter-ext-priv-x64: meterpreter-ext-priv-x64-gen meterpreter-ext-priv-x64-build
@@ -264,6 +268,26 @@ meterpreter-ext-peinjector-x64-gen:
 meterpreter-ext-peinjector-x64-build:
 	@cmake --build workspace/build/mingw-x64-ext-peinjector $(COMMON_BUILD)
 
+### BofLoader
+
+meterpreter-ext-bofloader: meterpreter-ext-bofloader-x86 meterpreter-ext-bofloader-x64
+
+meterpreter-ext-bofloader-x86: meterpreter-ext-bofloader-x86-gen meterpreter-ext-bofloader-x86-build
+
+meterpreter-ext-bofloader-x86-gen:
+	@cmake -S workspace -B workspace/build/mingw-x86-ext-bofloader -DBUILD_ALL=OFF -DBUILD_EXT_bofloader=ON $(COMMON_GEN_X86)
+
+meterpreter-ext-bofloader-x86-build:
+	@cmake --build workspace/build/mingw-x86-ext-bofloader $(COMMON_BUILD)
+
+meterpreter-ext-bofloader-x64: meterpreter-ext-bofloader-x64-gen meterpreter-ext-bofloader-x64-build
+
+meterpreter-ext-bofloader-x64-gen:
+	@cmake -S workspace -B workspace/build/mingw-x64-ext-bofloader -DBUILD_ALL=OFF -DBUILD_EXT_bofloader=ON $(COMMON_GEN_X64)
+
+meterpreter-ext-bofloader-x64-build:
+	@cmake --build workspace/build/mingw-x64-ext-bofloader $(COMMON_BUILD)
+
 ##########################################################################################
 ### Container-based Builds
 ##########################################################################################
@@ -381,3 +405,12 @@ docker-ext-peinjector-x86:
 
 docker-ext-peinjector-x64:
 	@docker run -u $(ID):$(ID) -it -v ${PWD}:/meterpreter -w /meterpreter --rm $(DOCKER_CONTAINER) make meterpreter-ext-peinjector-x64
+
+docker-ext-bofloader:
+	@docker run -u $(ID):$(ID) -it -v ${PWD}:/meterpreter -w /meterpreter --rm $(DOCKER_CONTAINER) make meterpreter-ext-bofloader
+
+docker-ext-bofloader-x86:
+	@docker run -u $(ID):$(ID) -it -v ${PWD}:/meterpreter -w /meterpreter --rm $(DOCKER_CONTAINER) make meterpreter-ext-bofloader-x86
+
+docker-ext-bofloader-x64:
+	@docker run -u $(ID):$(ID) -it -v ${PWD}:/meterpreter -w /meterpreter --rm $(DOCKER_CONTAINER) make meterpreter-ext-bofloader-x64
