@@ -879,10 +879,20 @@ def ctstruct_unpack(structure, raw_data):
     ctypes.memmove(ctypes.byref(structure), raw_data, ctypes.sizeof(structure))
     return structure
 
+def get_process_output(args):
+    proc_h = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = proc_h.communicate()
+
+    if proc_h.wait():
+        raise Exception(args[0] + ' exited with non-zero status')
+    return str(stdout)
+
 def get_stat_buffer(path):
     si = os.stat(path)
     rdev = 0
-    if hasattr(si, 'st_rdev'):
+    # Older versions of Python on Windows return invalid/negative values for st_rdev - skip it entirely
+    # https://github.com/python/cpython/commit/a10c1f221a5248cedf476736eea365e1dfc84910#diff-b419a047f587ec3afef8493e19dbfc142624bf278f3298bfc74729abd89e311d
+    if hasattr(si, 'st_rdev') and not sys.platform.startswith('win'):
         rdev = si.st_rdev
     st_buf = struct.pack('<III', int(si.st_dev), int(si.st_mode), int(si.st_nlink))
     st_buf += struct.pack('<IIIQ', int(si.st_uid), int(si.st_gid), int(rdev), long(si.st_ino))
@@ -1550,12 +1560,11 @@ def stdapi_sys_process_get_processes_via_proc(request, response):
     return ERROR_SUCCESS, response
 
 def stdapi_sys_process_get_processes_via_ps(request, response):
-    ps_args = ['ps', 'ax', '-w', '-o', 'pid,ppid,user,command']
-    proc_h = subprocess.Popen(ps_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    ps_output = str(proc_h.stdout.read())
-    ps_output = ps_output.split('\n')
-    ps_output.pop(0)
-    for process in ps_output:
+    ps_output = get_process_output(['ps', 'ax', '-w', '-o', 'pid,ppid,user,command'])
+
+    output = ps_output.split('\n')
+    output.pop(0)
+    for process in output:
         process = process.split()
         if len(process) < 4:
             break
@@ -2188,8 +2197,8 @@ def stdapi_net_config_get_interfaces(request, response):
         iface_tlv += tlv_pack(TLV_TYPE_MAC_ADDRESS, iface_info.get('hw_addr', '\x00\x00\x00\x00\x00\x00'))
         if 'mtu' in iface_info:
             iface_tlv += tlv_pack(TLV_TYPE_INTERFACE_MTU, iface_info['mtu'])
-        if 'flags' in iface_info:
-            iface_tlv += tlv_pack(TLV_TYPE_INTERFACE_FLAGS, iface_info['flags'])
+        if 'flags_str' in iface_info:
+            iface_tlv += tlv_pack(TLV_TYPE_INTERFACE_FLAGS, iface_info['flags_str'])
         iface_tlv += tlv_pack(TLV_TYPE_INTERFACE_INDEX, iface_info['index'])
         for address in iface_info.get('addrs', []):
             iface_tlv += tlv_pack(TLV_TYPE_IP, address[1])
@@ -2224,7 +2233,8 @@ def stdapi_net_config_get_interfaces_via_netlink():
         for flag in iface_flags_sorted:
             if (iface.flags & flag):
                 flags.append(iface_flags[flag])
-        iface_info['flags'] = ' '.join(flags)
+        iface_info['flags'] = iface.flags
+        iface_info['flags_str'] = ' '.join(flags)
         cursor = ctypes.sizeof(IFINFOMSG)
         while cursor < len(res_data):
             attribute = ctstruct_unpack(RTATTR, res_data[cursor:])
@@ -2268,22 +2278,19 @@ def stdapi_net_config_get_interfaces_via_netlink():
     return interfaces.values()
 
 def stdapi_net_config_get_interfaces_via_osx_ifconfig():
-    proc_h = subprocess.Popen('/sbin/ifconfig', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if proc_h.wait():
-        raise Exception('ifconfig exited with non-zero status')
-    output = proc_h.stdout.read()
-
+    output = get_process_output(['/sbin/ifconfig'])
     interfaces = []
     iface = {}
     for line in output.split('\n'):
-        match = re.match(r'^([a-z0-9]+): flags=(\d+)<[A-Z,]*> mtu (\d+)\s*$', line)
+        match = re.match(r'^([a-z0-9]+): flags=(\d+)<([A-Z,]*)> mtu (\d+)\s*$', line)
         if match is not None:
             if iface:
                 interfaces.append(iface)
             iface = {}
             iface['name'] = match.group(1)
             iface['flags'] = int(match.group(2))
-            iface['mtu'] = int(match.group(3))
+            iface['flags_str'] = match.group(3)
+            iface['mtu'] = int(match.group(4))
             iface['index'] = len(interfaces)
             continue
         match = re.match(r'^\s+ether (([a-f0-9]{2}:){5}[a-f0-9]{2})\s*$', line)
@@ -2484,11 +2491,7 @@ def stdapi_net_config_get_routes_via_netlink():
     return routes
 
 def stdapi_net_config_get_routes_via_osx_netstat():
-    proc_h = subprocess.Popen(['/usr/sbin/netstat', '-rn'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if proc_h.wait():
-        raise Exception('netstat exited with non-zero status')
-    output = proc_h.stdout.read()
-
+    output = get_process_output(['/usr/sbin/netstat', '-rn'])
     routes = []
     state = None
     has_refs = None
@@ -2524,7 +2527,7 @@ def stdapi_net_config_get_routes_via_osx_netstat():
             continue
         if destination == 'default':
             destination = all_nets
-        if re.match('link#\d+', gateway) or re.match('([0-9a-f]{1,2}:){5}[0-9a-f]{1,2}', gateway):
+        if re.match('link#\\d+', gateway) or re.match('([0-9a-f]{1,2}:){5}[0-9a-f]{1,2}', gateway) or re.match('([0-9a-f]{1,2}.){5}[0-9a-f]{1,2}', gateway):
             gateway = all_nets[:-2]
         if '/' in destination:
             destination, netmask_bits = destination.rsplit('/', 1)
@@ -2896,7 +2899,7 @@ def stdapi_railgun_api(request, response):
             if last_error == ERROR_SUCCESS:
                 error_message = 'The operation completed successfully.'
             else:
-                error_message = 'FormatMessage failed to retrieve the error.'
+                error_message = 'FormatMessage failed to retrieve the error for value ' + hex(last_error) + '.'
     else:
         raise RuntimeError('unknown platform')
 
