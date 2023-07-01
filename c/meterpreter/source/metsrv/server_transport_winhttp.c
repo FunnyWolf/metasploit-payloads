@@ -331,7 +331,7 @@ static DWORD validate_response_winhttp(HANDLE hReq, HttpTransportContext* ctx)
  */
 static DWORD packet_transmit_http(Remote *remote, LPBYTE rawPacket, DWORD rawPacketLength)
 {
-	DWORD res = 0;
+	DWORD dwResult = ERROR_SUCCESS;
 	HINTERNET hReq;
 	BOOL result;
 	DWORD retries = 5;
@@ -344,7 +344,7 @@ static DWORD packet_transmit_http(Remote *remote, LPBYTE rawPacket, DWORD rawPac
 		hReq = ctx->create_req(ctx, FALSE, "PACKET TRANSMIT");
 		if (hReq == NULL)
 		{
-			break;
+			BREAK_ON_ERROR("[PACKET TRANSMIT HTTP] Failed create_req");
 		}
 		//toybox
 		while (retries > 0)
@@ -367,7 +367,7 @@ static DWORD packet_transmit_http(Remote *remote, LPBYTE rawPacket, DWORD rawPac
 
 	lock_release(remote->lock);
 
-	return res;
+	return dwResult;
 }
 
 /*!
