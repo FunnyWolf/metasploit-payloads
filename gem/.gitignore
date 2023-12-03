@@ -7,6 +7,7 @@ InstalledFiles
 lib/bundler/man
 rdoc
 spec/reports
+spec/examples.txt
 test/tmp
 test/version_tmp
 tmp
@@ -41,3 +42,6 @@ data/*
 # never include private bins!
 # If you're interested in these, consider http://metasploit.pro
 data/meterpreter/ext_server_pivot.*
+
+manifest
+manifest.uuid
