@@ -64,21 +64,25 @@ public class stdapi_fs_search implements Command {
 
     public static List findFiles(String path, String mask, boolean recurse, Integer startDate, Integer endDate) {
         try {
-            File pathfile = Loader.expand(path);
-            if (!pathfile.exists() || !pathfile.isDirectory()) {
-                pathfile = new File(path);
-                if (!pathfile.exists() || !pathfile.isDirectory()) {
+            File pathFile = Loader.expand(path);
+            if (!pathFile.exists() || !pathFile.isDirectory()) {
+                pathFile = new File(path);
+                if (!pathFile.exists() || !pathFile.isDirectory()) {
                     throw new IOException("Path not found: " + path);
                 }
             }
-            path = pathfile.getCanonicalPath();
-            File[] lst = new File(path).listFiles();
+            path = pathFile.getCanonicalPath();
+            pathFile = new File(path);
+            String[] lst = pathFile.list();
             List glob = new ArrayList();
             if (lst == null) {
                 return glob;
             }
             for (int i = 0; i < lst.length; i++) {
-                File file = lst[i];
+                if (lst[i] == null) {
+                    continue;
+                }
+                File file = new File(pathFile, lst[i]);
                 if (recurse && file.isDirectory()
                         // don't follow links to avoid infinite recursion
                         && file.getCanonicalPath().equals(file.getAbsolutePath())) {
